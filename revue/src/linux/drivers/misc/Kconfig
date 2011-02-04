@@ -293,6 +293,6 @@ config FLASH_TS_PARTITION
 
 config LOGITECH_KA_PIC24F
         tristate "Logitech KA PIC24F Driver"
-        default y
+        default n
 
 endif # MISC_DEVICES
