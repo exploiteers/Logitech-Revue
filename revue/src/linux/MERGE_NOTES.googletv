@@ -1,0 +1,56 @@
+git log --reverse --since=2008-11-01 --until=2008-11-12 --pretty=format:"%h   %ci   %s" android-msm/android-msm-2.6.27
+
+DONE:
+f20c6a0   2008-11-05 16:34:09 -0800   PM: Add wake lock api.
+e07c2cb   2008-11-05 16:34:10 -0800   PM: Add early suspend api.
+26c5ff5   2008-11-05 16:34:11 -0800   PM: Implement wakelock api.
+315240a   2008-11-05 16:34:12 -0800   PM: Implement early suspend api
+ac271b0   2008-11-05 16:34:13 -0800   PM: Enable early suspend through /sys/power/state
+54c679e   2008-11-05 16:34:14 -0800   PM: Add user-space wake lock api.
+a11234c   2008-11-05 16:34:15 -0800   PM: wakelock: Abort task freezing if a wake lock is held.
+77d69ad   2008-11-05 16:34:16 -0800   PM: earlysuspend: Add console switch when user requested sleep state changes.
+6624ed7   2008-11-05 16:34:16 -0800   PM: earlysuspend: Removing dependence on console.
+bfbeda8   2008-11-05 16:45:06 -0800   rtc: Add android alarm driver.
+eadd2ae   2008-11-05 16:49:12 -0800   rtc: Try to prevent RTC errors from accumulating.
+07cb85a   2008-11-05 16:49:13 -0800   ledtrig-sleep: Add led trigger for sleep debugging.
+739005e   2008-11-05 16:49:14 -0800   PM: Wait for console in resume.
+cea25fa   2008-11-05 16:49:14 -0800   PM: Fix suspend_console/resume_console use only one semaphore.
+****47e7759   2008-11-05 16:49:15 -0800   switch: switch class and GPIO drivers.
+a75e11a   2008-11-05 16:49:16 -0800   lowmemorykiller: Initial support for 2.6.27
+586d761   2008-11-05 16:49:16 -0800   android: ram_console: Initial support for 2.6.27
+6a29da7   2008-11-05 16:49:17 -0800   Add binder driver.
+ad8431e   2008-11-05 16:49:18 -0800   logger for 2.6.27.
+b6bc34e   2008-11-05 16:49:19 -0800   timed_gpio: driver for GPIOs that turn back off after a delay
+3f2e405   2008-11-05 16:49:19 -0800   pmem: Add pmem driver
+1dfb5b4   2008-11-05 16:49:20 -0800   Add android_aid.h
+795b2e6   2008-11-05 16:49:21 -0800   ashmem for 2.6.27.
+
+TODO:
+670d50c   2008-11-05 16:49:21 -0800   Paranoid network.
+d618276   2008-11-05 16:49:22 -0800   net: socket ioctl to reset connections matching local address
+349f615   2008-11-05 16:49:23 -0800   printk: Fix log_buf_copy termination.
+d0a31f5   2008-11-05 16:49:23 -0800   Add build option to to set the default panic timeout.
+0cb89e5   2008-11-05 16:49:24 -0800   FAT: Add new ioctl VFAT_IOCTL_GET_VOLUME_ID for reading the volume ID.
+7e3b23a   2008-11-05 16:49:25 -0800   Grants system server access to /proc/<pid>/oom_adj for Android applications.
+48d6a71   2008-11-05 16:49:26 -0800   Make /dev/mem configurable, as we don't want it.
+10b815b   2008-11-05 16:49:26 -0800   sysfs_net_ipv4: Add sysfs-based knobs for controlling TCP window size
+a2e99ae   2008-11-05 16:49:27 -0800   [ARM] Add code to prevent system calls from being restarted muliple times before returning from the kernel.
+5aad693   2008-11-05 16:49:28 -0800   [ARM] Fix v6_early_abort to not trash r0 if strex succeeds.
+245672e   2008-11-05 16:49:28 -0800   [ARM] Save thread registers in coredumps
+c7a0989   2008-11-05 16:49:29 -0800   [ARM] armv6 dcc tty driver
+47b3c2a   2008-11-05 16:49:30 -0800   yaffs: Import yaffs from Mon Oct 13 03:47:26 2008 +0000
+fb73c21   2008-11-05 16:49:30 -0800   yaffs: Set YAFFS_IGNORE_TAGS_ECC if compiled without ECC support.
+f3bdc18   2008-11-05 16:49:31 -0800   yaffs: Pass trough single bit errors from MTD.
+62f133a   2008-11-05 16:49:32 -0800   yaffs: Enable automatic checkpointing.
+5e9a3e1   2008-11-05 16:49:33 -0800   yaffs: Add yaffs_auto_checkpoint parameter.
+23fea2c   2008-11-05 16:49:34 -0800   yaffs: Don't trust checkpoint objects to have a directory for a parent.
+0075c54   2008-11-05 16:49:34 -0800   yaffs: Don't crash when mounting a filesystem with invalid object types.
+e03327f   2008-11-05 16:49:35 -0800   yaffs: Add bad block sequence number and use it if yaffs_MarkBlockBad fails.
+252a79a6   2008-11-05 16:49:36 -0800   yaffs: Update stats when using mtdif2.
+ab7a7c7   2008-11-05 16:49:36 -0800   kernel_debugger_core: add interrupt-context debugger core
+1a7de8e   2008-11-05 16:49:37 -0800   kernel_debugger_core: Add sysrq command.
+d0c63fd   2008-11-05 16:49:38 -0800   Input: Generic GPIO Input device.
+a255911   2008-11-05 16:49:39 -0800   Input: Hold wake lock while event queue is not empty.
+a05f11b   2008-11-05 16:49:39 -0800   Input: Use monotonic time for event time stamps.
+53af199   2008-11-05 16:49:40 -0800   Input: synaptics_i2c_rmi: Driver for Synaptics Touchscreens using RMI over I2C.
+0159bbf   2008-11-05 16:49:41 -0800   pca963x: Phillips PCA963X 4-bit i2c led driver
