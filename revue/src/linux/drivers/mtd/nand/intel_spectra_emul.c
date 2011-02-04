@@ -2,7 +2,6 @@
  * Intel Spectra IOCTL emulator.
  *
  * Copyright (c) 2010 Google, Inc
- * Eugene Surovegin <surovegin@google.com> or <ebs@ebshome.net>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,12 +19,12 @@
 #include <linux/sched.h>
 
 #define DRV_NAME        	"spectra"
-#define DRV_VERSION     	"0.1"
+#define DRV_VERSION     	"0.2"
 #define DRV_DESC        	"Intel Spectra emulation driver"
 
 MODULE_DESCRIPTION(DRV_DESC);
 MODULE_VERSION(DRV_VERSION);
-MODULE_AUTHOR("Eugene Surovegin <surovegin@google.com> or <ebs@ebshome.net>");
+MODULE_AUTHOR("Eugene Surovegin <es@google.com>");
 MODULE_LICENSE("GPL");
 
 #define DBG_LEVEL 		0
@@ -44,9 +43,9 @@ MODULE_LICENSE("GPL");
 struct spectra_device_info {
 	__u16 __rsrv0;
 	__u32 __rsrv1;
-	__u16 __rsrv2[3];
+	__u32 __rsrv2[3];
 
-	__u16 blocks;
+	__u32 blocks;
 	__u16 blockpages;
 	__u16 pagesize;		/* including OOB */
 	__u16 writesize;
@@ -57,7 +56,7 @@ struct spectra_device_info {
 	__u32 blocksize;	/* including OOB */
 	__u32 erasesize;
 
-	__u16 __rsrv5;
+	__u32 __rsrv5;
 	__u8 __rsrv6;
 	__u16 __rsrv7[12];
 };
@@ -118,6 +117,8 @@ static int spectra_open(struct inode *inode, struct file *file)
 
 	dev->device_info.blocks = CEFDK_CFG_PARTITION_OFFSET +
 	    mtd->size / mtd->erasesize;
+
+	DBG("sizeof(device_info) 0x%x\n", sizeof(dev->device_info));
 
 	file->private_data = dev;
 	return 0;

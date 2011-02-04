@@ -38,6 +38,7 @@ static int bcb_fts_reboot_hook(struct notifier_block*, unsigned long, void*);
  */
 static __initdata struct board_config {
 	char *name;
+	unsigned revision;
 	unsigned long sdk_pool; /* how much memory is reserved, normal boot */
 	unsigned long sdk_pool_recovery; 	       /* ... recovery boot */
 
@@ -92,9 +93,9 @@ static __initdata struct board_config {
 		       "6m@8m(scratch)",
 	},
 	{ .name = "tatung4",
-	  .sdk_pool = 324 * ONE_MB,
+	  .sdk_pool = 328 * ONE_MB,
 	  .sdk_pool_recovery = 256 * ONE_MB,
-	  .default_root = "/dev/sda1",
+	  .default_root = "/dev/mtdblock:boot",
 	  .reboot_notifier = bcb_fts_reboot_hook,
 
 	   /* 1G NAND, 4K pages, 512K block */
@@ -122,48 +123,10 @@ static __initdata struct board_config {
 	  .mtdparts = TATUNG4_MTDPARTS("ro"),
 	  .mtdparts_recovery = TATUNG4_MTDPARTS(""),
 	},
-	{ .name = "logitech_ka3", /* aka PB2 */
-	  .sdk_pool = 324 * ONE_MB,
-	  .sdk_pool_recovery = 256 * ONE_MB,
-	  .default_root = "/dev/mtdblock:boot",
-	  .kmod_key = &ka3_rsa_key,
-	  .reboot_notifier = bcb_fts_reboot_hook,
-	  .nodelay_bus_name = "0000:01:0d.0",
 
-	   /* 1G NAND, 4K pages, 256K block */
-#define KA3_MTDPARTS(__RO__)						\
-		"intel_ce_nand:"					\
-		"2m(mbr)ro,"			/* 8x redundancy */	\
-		"8m(cefdk)" __RO__ ","		/* 8x redundancy */	\
-		"2m(redboot)" __RO__ ","	/* 8x redundancy */	\
-		"2m(cefdk-config)ro,"	/* 8x redundancy */		\
-		/* 2M gap (blocks 56 - 63) */				\
-		"8m@16m(splash)" __RO__ ","	/* 4x redundancy */	\
-		"1m(fts)ro,"			/* 3 spare blocks */	\
-		"20m(recovery),"		/* 5 spare blocks */	\
-		"5m(kernel)" __RO__ ","		/* 3 spare blocks */	\
-		"64m(boot)" __RO__ ","					\
-		"384m(system),"						\
-		"520m(data),"						\
-		"5m(keystore),"			/* not android */	\
-	        "1m(bbt)ro"						\
 
-	  /* we want to limit write access to important partitions
-	   * in non-recovery mode
-	   */
-	  .mtdparts = KA3_MTDPARTS("ro"),
-	  .mtdparts_recovery = KA3_MTDPARTS(""),
-	},
-	{ .name = "logitech_ka4", /* aka PB3 */
-	  .sdk_pool = 324 * ONE_MB,
-	  .sdk_pool_recovery = 256 * ONE_MB,
-	  .default_root = "/dev/mtdblock:boot",
-	  .kmod_key = &ka4_rsa_key,
-	  .reboot_notifier = bcb_fts_reboot_hook,
-	  .nodelay_bus_name = "0000:01:0d.0",
-
-	   /* 1G NAND, 4K pages, 256K block */
-#define KA4_MTDPARTS(__RO__)						\
+	/* Samsung K9F8G08U0M (1G NAND, 4K pages, 256K block) */
+#define KA_256K_MTDPARTS(__RO__, __RODEV__)				\
 		"intel_ce_nand:"					\
 		"2m(mbr)ro,"			/* 8x redundancy */	\
 		"8m(cefdk)" __RO__ ","		/* 8x redundancy */	\
@@ -175,56 +138,84 @@ static __initdata struct board_config {
 		"20m(recovery),"		/* 5 spare blocks */	\
 		"5m(kernel)" __RO__ ","		/* 3 spare blocks */	\
 		"64m(boot)" __RO__ ","					\
-		"384m(system)" __RO__ ","			       	\
+		"384m(system)" __RODEV__ ","			       	\
 		"520m(data),"						\
-		"5m(keystore)" __RO__ ","	/* not android */	\
+		"5m(keystore)" __RODEV__ ","	/* not android */	\
 	        "1m(bbt)ro"						\
 
-	  /* we want to limit write access to important partitions
-	   * in non-recovery mode
-	   */
-	  .mtdparts = KA4_MTDPARTS("ro"),
-	  .mtdparts_recovery = KA4_MTDPARTS(""),
-	},
-	{ .name = "logitech_ka5", /* aka PB4/MP */
-	  .sdk_pool = 324 * ONE_MB,
-	  .sdk_pool_recovery = 256 * ONE_MB,
-	  .default_root = "/dev/mtdblock:boot",
-	  .kmod_key = &ka5_rsa_key,
-	  .reboot_notifier = bcb_fts_reboot_hook,
-	  .nodelay_bus_name = "0000:01:0d.0",
-
-	   /* 1G NAND, 4K pages, 256K block */
-#define KA5_MTDPARTS(__RO__)						\
+	/* Micron MT29F8G08ABABA (1G NAND, 4K pages, 512K block) */
+#define KA_512K_MTDPARTS(__RO__, __RODEV__)				\
 		"intel_ce_nand:"					\
-		"2m(mbr)ro,"			/* 8x redundancy */	\
-		"8m(cefdk)" __RO__ ","		/* 8x redundancy */	\
-		"2m(redboot)" __RO__ ","	/* 8x redundancy */	\
-		"2m(cefdk-config)ro,"		/* 8x redundancy */	\
-		/* 2M gap (blocks 56 - 63) */				\
-		"8m@16m(splash)" __RO__ ","	/* 4x redundancy */	\
-		"1m(fts)ro,"			/* 3 spare blocks */	\
+		"4m(mbr)ro,"			/* 8x redundancy */	\
+		"16m(cefdk)" __RO__ ","		/* 8x redundancy */	\
+		"4m(redboot)" __RO__ ","	/* 8x redundancy */	\
+		"4m(cefdk-config)ro,"		/* 8x redundancy */	\
+		/* 4M gap (blocks 56 - 63) */				\
+		"8m@32m(splash)" __RO__ ","	/* 4x redundancy */	\
+		"2m(fts)ro,"			/* 3 spare blocks */	\
 		"20m(recovery),"		/* 5 spare blocks */	\
 		"5m(kernel)" __RO__ ","		/* 3 spare blocks */	\
 		"64m(boot)" __RO__ ","					\
-		"384m(system)" __RO__ ","			       	\
-		"520m(data),"						\
-		"5m(keystore)" __RO__ ","	/* not android */	\
-	        "1m(bbt)ro"						\
+		"384m(system)" __RODEV__ ","			       	\
+		"502m(data),"						\
+		"5m(keystore)" __RODEV__ ","	/* not android */	\
+		"2m(bbt)ro"						\
 
-	  /* we want to limit write access to important partitions
-	   * in non-recovery mode
-	   */
-	  .mtdparts = KA5_MTDPARTS("ro"),
-	  .mtdparts_recovery = KA5_MTDPARTS(""),
+#define KA_COMMON(__NAME__, __REVISION__, __KMOD_KEY__,                 \
+		  __MTDPARTS__, __MTDPARTS_RECOVERY__)                  \
+	{ .name = __NAME__,                                             \
+	  .revision = __REVISION__,                                     \
+	  .sdk_pool = 328 * ONE_MB,                                     \
+	  .sdk_pool_recovery = 256 * ONE_MB,                            \
+	  .default_root = "/dev/mtdblock:boot",                         \
+	  .reboot_notifier = bcb_fts_reboot_hook,                       \
+	  .nodelay_bus_name = "0000:01:0d.0",                           \
+	  .kmod_key = __KMOD_KEY__,                                     \
+	  .mtdparts = __MTDPARTS__,                                     \
+	  .mtdparts_recovery = __MTDPARTS_RECOVERY__,                   \
 	},
+
+	/* PB2 */
+	KA_COMMON("logitech_ka3", 0,
+		  &ka3_rsa_key,
+		  KA_256K_MTDPARTS("ro", ""),
+		  KA_256K_MTDPARTS("", ""))
+
+	KA_COMMON("logitech_ka3", 1,
+		  &ka3_rsa_key,
+		  KA_512K_MTDPARTS("ro", ""),
+		  KA_512K_MTDPARTS("", ""))
+
+	/* PB3 */
+	KA_COMMON("logitech_ka4", 0,
+		  &ka3_rsa_key,
+		  KA_256K_MTDPARTS("ro", ""),
+		  KA_256K_MTDPARTS("", ""))
+
+	KA_COMMON("logitech_ka4", 1,
+		  &ka3_rsa_key,
+		  KA_512K_MTDPARTS("ro", ""),
+		  KA_512K_MTDPARTS("", ""))
+
+	/* PB4/MP */
+	KA_COMMON("logitech_ka5", 0,
+		  &ka5_rsa_key,
+		  KA_256K_MTDPARTS("ro", "ro"),
+		  KA_256K_MTDPARTS("", ""))
+
+	KA_COMMON("logitech_ka5", 1,
+		  &ka5_rsa_key,
+		  KA_512K_MTDPARTS("ro", "ro"),
+		  KA_512K_MTDPARTS("", ""))
 };
 
 /* This is what we will use if nothing has been passed by bootloader
  * or name wasn't recognized.
  */
 #define DEFAULT_BOARD	"tatung3"
+#define DEFAULT_REVISION 0
 static __initdata char board_name[32] = DEFAULT_BOARD;
+static __initdata unsigned board_revision;
 
 static __initdata char console[32];
 static __initdata char boot_mode[32];
@@ -261,6 +252,10 @@ static int __init do_param(char *param, char *val)
 		return 0;
 	}
 
+	if (!strcmp(param, "androidboot.revision") && val) {
+		board_revision = simple_strtoul(val, NULL, 0);
+	}
+
 	if (!strcmp(param, "console") && val)
 		strlcpy(console, val, sizeof(console));
 
@@ -273,11 +268,13 @@ static int __init do_param(char *param, char *val)
 	return 0;
 }
 
-static __init struct board_config *get_board_config(const char *name)
+static __init struct board_config *get_board_config(const char *name,
+						    int revision)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(boards); ++i)
-		if (!strcmp(name, boards[i].name))
+		if (!strcmp(name, boards[i].name) &&
+		    revision == boards[i].revision)
 			return boards + i;
 	return NULL;
 }
@@ -311,11 +308,11 @@ char* __init memory_setup(void)
 		printk(KERN_INFO "Recovery boot detected\n");
 
 	/* Board-specific config */
-	cfg = get_board_config(board_name);
+	cfg = get_board_config(board_name, board_revision);
 	if (!cfg) {
 		printk(KERN_WARNING "Unknown board name: '%s', using '"
 		       DEFAULT_BOARD "'\n", board_name);
-		cfg = get_board_config(DEFAULT_BOARD);
+		cfg = get_board_config(DEFAULT_BOARD, DEFAULT_REVISION);
 		strlcpy(board_name, DEFAULT_BOARD, sizeof(board_name));
 		BUG_ON(!cfg);
 	}
@@ -397,6 +394,8 @@ __setup_param("androidboot.bootloader", dummy_1, dummy_param, 1);
 __setup_param("androidboot.console", dummy_2, dummy_param, 1);
 __setup_param("androidboot.hardware", dummy_3, dummy_param, 1);
 __setup_param("androidboot.mode", dummy_4, dummy_param, 1);
+__setup_param("androidboot.revision", dummy_5, dummy_param, 1);
+__setup_param("androidboot.serialno", dummy_6, dummy_param, 1);
 
 /* BCB (boot control block) support */
 static int bcb_nvram_reboot_hook(struct notifier_block *notifier,
@@ -426,15 +425,11 @@ static int bcb_nvram_reboot_hook(struct notifier_block *notifier,
 static int bcb_fts_reboot_hook(struct notifier_block *notifier,
 			       unsigned long code, void *cmd)
 {
-	if (code == SYS_RESTART) {
-		char *command = "";
-
-		if (cmd && !strcmp(cmd, "recovery"))
-			command = "boot-recovery";
-
-		if (flash_ts_set("bootloader.command", command) ||
+	if (code == SYS_RESTART && cmd && !strcmp(cmd, "recovery")) {
+		if (flash_ts_set("bootloader.command", "boot-recovery") ||
 		    flash_ts_set("bootloader.status", "") ||
-		    flash_ts_set("bootloader.recovery", "")) {
+		    flash_ts_set("bootloader.recovery", ""))
+		{
 			printk(KERN_ERR "Failed to set bootloader command\n");
 		}
 	}

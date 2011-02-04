@@ -19,6 +19,8 @@
 #include <linux/oom.h>
 #include <linux/sched.h>
 
+#define LOWMEM_LEVELS 16
+
 static int lowmem_shrink(int nr_to_scan, gfp_t gfp_mask);
 
 static struct shrinker lowmem_shrinker = {
@@ -26,14 +28,14 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 static uint32_t lowmem_debug_level = 2;
-static int lowmem_adj[6] = {
+static int lowmem_adj[LOWMEM_LEVELS] = {
 	0,
 	1,
 	6,
 	12,
 };
 static int lowmem_adj_size = 4;
-static size_t lowmem_minfree[6] = {
+static size_t lowmem_minfree[LOWMEM_LEVELS] = {
 	3*512, // 6MB
 	2*1024, // 8MB
 	4*1024, // 16MB
@@ -125,4 +127,3 @@ module_init(lowmem_init);
 module_exit(lowmem_exit);
 
 MODULE_LICENSE("GPL");
-

@@ -13,6 +13,19 @@
 
 #define SHA1_DIGEST_SIZE        20
 
+/*
+ * DEBUG enables extra prints and DISABLES the security.
+ * Don't define in production releases!
+ */
+//#define DEBUG 1
+
+#ifdef DEBUG
+#warning **** MODULE SECURITY DISABLED ****
+#define pr_debug1(...)	printk(KERN_DEBUG __VA_ARGS__)
+#else
+#define pr_debug1(...)
+#endif
+
 
 static inline unsigned int sg_add_buf(struct scatterlist *sg, unsigned int sg_idx, const void *buf, unsigned long buflen)
 {
@@ -38,6 +51,7 @@ static inline const char *find_name(Elf_Ehdr *hdr, Elf_Shdr *sechdrs, const char
 		return NULL;
 	}
 
+	/* we verified the string table is null terminated, so this string must be */
 	return secstrings + sechdrs[idx].sh_name;
 }
 
@@ -51,18 +65,15 @@ int module_check_sig(Elf_Ehdr *hdr, unsigned int len)
 	struct scatterlist *sg;
 	unsigned int sig_index = 0;
 	unsigned char *sig;
-	unsigned int sg_max, sg_idx, sig_size, sha1_size;
+	unsigned int sg_size, sg_idx;
+	unsigned int sig_size, sig_offset, sha1_size;
 	u8 sha1_result[SHA1_DIGEST_SIZE];
-	unsigned char trailer[6];
-	unsigned char *ptr;
-	int i, ptr_len;
+	unsigned char trailer[4];
+	int ret, i;
 
-	struct sechdr {
-		uint32_t type;
-		uint32_t flags;
-		uint32_t size;
-	} __attribute__((__packed__)) *sechdr;
-
+	if (len > 10 * 1024 * 1024) {
+		return -ENOEXEC; /* sanity check length to 10M */
+	}
 
 	/* module.c does not fully verify sechdrs and sectrings */
 	if (hdr->e_shoff > len) {
@@ -73,61 +84,83 @@ int module_check_sig(Elf_Ehdr *hdr, unsigned int len)
 	if (hdr->e_shnum < hdr->e_shstrndx) {
 		return -EINVAL; /* string section out of range */
 	}
-	if (len < sechdrs[hdr->e_shstrndx].sh_offset + sechdrs[hdr->e_shstrndx].sh_size) {
-		return -ENOEXEC; /* truncated */
+	if (len < sechdrs[hdr->e_shstrndx].sh_offset ||
+	    len < sechdrs[hdr->e_shstrndx].sh_size ||
+	    len < sechdrs[hdr->e_shstrndx].sh_offset + sechdrs[hdr->e_shstrndx].sh_size) {
+		return -ENOEXEC; /* truncated or overflow */
 	}
 	secstrings = (void *)hdr + sechdrs[hdr->e_shstrndx].sh_offset;
 
+	/* first and last byte of of the string table must be null */
+	if (*secstrings || *(secstrings + sechdrs[hdr->e_shstrndx].sh_size)) {
+		pr_debug("String null check failed\n");
+		return -ENOEXEC;
+	}
 
-	/* verify section headers and look for signature */
-	sg_max = 0;
+	/* find and verify signature section */
 	for (i = 1; i < hdr->e_shnum; i++) {
 		const char *name;
-
-		if (sechdrs[i].sh_type != SHT_NOBITS
-		    && len < sechdrs[i].sh_offset + sechdrs[i].sh_size) {
-			return -ENOEXEC; /* truncated */
-		}
 
 		name = find_name(hdr, sechdrs, secstrings, i);
 		if (name && strcmp(name, ".signature") == 0) {
 			sig_index = i;
+			break;
 		}
-
-		sg_max += (sechdrs[i].sh_size / PAGE_SIZE) + 4;
 	}
-	sg_max += 2;
-
-	if (sig_index <= 0) {
+	if (sig_index == 0) {
+		pr_debug("No module signature\n");
 		return -EINVAL;
 	}
 
-	sig = (unsigned char *)hdr + sechdrs[sig_index].sh_offset;
+	sig_offset = sechdrs[sig_index].sh_offset;
 	sig_size = sechdrs[sig_index].sh_size;
 
-	// TODO(richard) this only parses 2048 bit RSA keys
-
-	/* verify gpg packet */
-	if (sig[0] != 0x89) {
+	if (len < sig_offset ||
+	    len < sig_size ||
+	    len < sig_offset + sig_size ||
+	    sig_size < 512) {
+		pr_debug("Signature size/offset failed\n");
 		return -EINVAL;
 	}
 
-	/* verify gpg packet length */
-	ptr_len = (sig[1] << 8) | sig[2];
-	if (ptr_len + 3 > sig_size) {
+	sig = (unsigned char *)hdr + sig_offset;
+
+	/* verify signature magic */
+	if (sig[0] != 0x53 || sig[1] != 0x69 || 
+	    sig[2] != 0x67 || sig[3] != 0x6e) {
+		pr_debug("Signature magic failed\n");
 		return -EINVAL;
 	}
 
-	/* verify gpg signature packet */
-	ptr = sig + 3;
-	if (ptr[0] != 0x04 || /* version number */
-	    ptr[1] != 0x00 || /* signature type */
-	    ptr[2] != 0x01 || /* public-key algorithm RSA*/
-	    ptr[3] != 0x02    /* hash algorithm SHA1 */) {
+	/* verify signature version */
+	if (sig[4] != 0x00 || sig[5] != 0x00 || 
+	    sig[6] != 0x00 || sig[7] != 0x01) {
+		pr_debug("Signature version failed\n");
 		return -EINVAL;
 	}
 
-	/* alloc hash */
+	/* verify no other sections overlap signature */
+	for (i = 1; i < hdr->e_shnum; i++) {
+		if (i == sig_index || sechdrs[i].sh_type == SHT_NOBITS) {
+			continue;
+		}
+
+		if (sechdrs[i].sh_offset <= sig_offset) {
+			if (sechdrs[i].sh_size > sig_offset ||
+			    sechdrs[i].sh_offset + sechdrs[i].sh_size > sig_offset) {
+				pr_debug("Section overlap\n");
+				return -EINVAL;
+			}
+		}
+		else {
+			if (sechdrs[i].sh_offset < sig_offset + sig_size) {
+				pr_debug("Section overlap\n");
+				return -EINVAL;
+			}
+		}
+	}
+
+	/* alloc hash and sg_list */
 	sha1_tfm = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(sha1_tfm)) {
 		return -ENOMEM;
@@ -135,96 +168,63 @@ int module_check_sig(Elf_Ehdr *hdr, unsigned int len)
 	desc.tfm = sha1_tfm;
 	desc.flags = 0;
 
-	sg = kmalloc(sizeof(struct scatterlist) * sg_max, GFP_KERNEL);
+	sg_size = (len / PAGE_SIZE) + 4;
+	sg = kmalloc(sizeof(struct scatterlist) * sg_size, GFP_KERNEL);
 	if (!sg) {
 		crypto_free_hash(sha1_tfm);
 		return -ENOMEM;
 	}
 
-	sechdr = kmalloc(sizeof(struct sechdr) * hdr->e_shnum, GFP_KERNEL);
-	if (!sechdr) {
-		kfree(sg);
-		crypto_free_hash(sha1_tfm);
-		return -ENOMEM;
-	}
-
+	/* build sg list */
 	sg_idx = 0;
 	sha1_size = 0;
-	for (i = 1; i < hdr->e_shnum; i++) {
-		void *addr = (void *)hdr + sechdrs[i].sh_offset;
-		int size = sechdrs[i].sh_size;
-		const char *name = find_name(hdr, sechdrs, secstrings, i);
 
-		/* Don't hash the signature section */
-		if (i == sig_index) {
-			continue;
-		}
+	/* sections before signature */
+	sg_idx = sg_add_buf(sg, sg_idx, hdr, sig_offset);
+	BUG_ON(sg_idx > sg_size);
+	sha1_size += sig_offset;
 
-		/* name */
-		sg_idx = sg_add_buf(sg, sg_idx, name, strlen(name));
-		sha1_size += strlen(name);
+	/* sections after signature */
+	sg_idx = sg_add_buf(sg, sg_idx, sig + sig_size, len - sig_offset - sig_size);
+	BUG_ON(sg_idx > sg_size);
+	sha1_size += len - sig_offset - sig_size;
 
-		/* headers */
-		sechdr[i].type = htonl(sechdrs[i].sh_type);
-		sechdr[i].flags = htonl(sechdrs[i].sh_flags);
-		sechdr[i].size = htonl(size);
+	trailer[0] = sha1_size >> 24;
+	trailer[1] = sha1_size >> 16;
+	trailer[2] = sha1_size >> 8;
+	trailer[3] = sha1_size;
 
-		sg_idx = sg_add_buf(sg, sg_idx, &sechdr[i], sizeof(struct sechdr));
-		sha1_size += sizeof(struct sechdr);
+	/* signature header */
+	sg_idx = sg_add_buf(sg, sg_idx, sig, 8);
+	BUG_ON(sg_idx > sg_size);
+	sha1_size += 8;
 
-		/* data */
-		if (!size || sechdrs[i].sh_type == SHT_NOBITS) {
-			continue;
-		}
-
-		sg_idx = sg_add_buf(sg, sg_idx, addr, size);
-		sha1_size += size;
-	}
-
-	/* hash signature packet body */
-	ptr_len = 6 + (ptr[4] << 8) + ptr[5];
-
-	sg_idx = sg_add_buf(sg, sg_idx, ptr, ptr_len);
-	sha1_size += ptr_len;
-
-	ptr += ptr_len;
-
-	/* hash signature trailer */
-	trailer[0] = 0x04;
-	trailer[1] = 0xff;
-	trailer[2] = ptr_len >> 24;
-	trailer[3] = ptr_len >> 16;
-	trailer[4] = ptr_len >> 8;
-	trailer[5] = ptr_len;
-
-	sg_idx = sg_add_buf(sg, sg_idx, trailer, 6);
-	sha1_size += 6;
+	/* section size */
+	sg_idx = sg_add_buf(sg, sg_idx, trailer, 4);
+	BUG_ON(sg_idx > sg_size);
+	sha1_size += 4;
 
 	/* generate hash */
 	crypto_hash_digest(&desc, sg, sha1_size, sha1_result);
 	crypto_free_hash(sha1_tfm);
 	kfree(sg);
-	kfree(sechdr);
 
-	/* skip unhashed subpacket data */
-	ptr_len = 2 + (ptr[0] << 8) + ptr[1];
-	ptr += ptr_len;
-
-	if (0) {
-		printk(KERN_INFO "sig begin digest %02x %02x\n", ptr[0], ptr[1]);
-		printk(KERN_INFO "module digest: ");
-		for (i = 0; i < sizeof(sha1_result); ++i)
-			printk("%02x ", sha1_result[i]);
-		printk("\n");
+#ifdef DEBUG
+	printk(KERN_INFO "sha1: ");
+	for (i=0; i<SHA1_DIGEST_SIZE; i++) {
+		printk("%02x ", sha1_result[i]);
 	}
+	printk("\n");
+#endif
 
-	/* check left 16 bits of signed hash value */
-	if (ptr[0] != sha1_result[0] && ptr[1] != sha1_result[1]) {
-		return -EPERM;
-	}
-	ptr += 2;
+	/* verify signature */
+	ret = (rsa_verify_sig(sig + 8, sig_size - 8, sha1_result) == 0) ? 0 : -EPERM;
 
-	/* see if this sha1 is really encrypted in the section */
-	return (rsa_verify_sig(ptr, sig + sig_size - ptr, sha1_result) == 0) ? 0 : -EPERM;
+#ifdef DEBUG
+	printk(KERN_INFO "modsig debug: verify %s\n", (ret == -EPERM) ? "failure" : "ok");
+	return 0;
+#else
+	return ret;
+#endif
 }
 

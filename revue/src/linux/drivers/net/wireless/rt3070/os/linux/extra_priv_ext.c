@@ -29,8 +29,11 @@ INT extra_priv_ext(IN struct net_device *dev,
 
     (void) rt_ioctl_giwrate(dev, NULL, &wrq_data, &extra);
 
+    // ralink driver reports in bits-per-second, convert to MBps
+    // note that this produces the value "5" for the 5.5MBps
+    // speed supported by 802.11b.
     wrq->u.data.length = snprintf(cmd, len, "LinkSpeed %d\n",
-                                  wrq_data.bitrate.value);
+        wrq_data.bitrate.value / 1000000);
   } else if ((strcmp("RSSI", cmd) == 0)) {
     // return result string: "RSSI <int-val>" where int-val is the
     // received signal strength, typically a negative number

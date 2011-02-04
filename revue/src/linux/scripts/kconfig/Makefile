@@ -12,6 +12,7 @@
 
 PHONY += oldconfig xconfig gconfig menuconfig config silentoldconfig update-po-config \
 	 gen3_defconfig
+PHONY += ka_defconfig
 
 xconfig: $(obj)/qconf
 	$< arch/$(ARCH)/Kconfig
@@ -33,6 +34,9 @@ silentoldconfig: $(obj)/conf
 
 gen3_defconfig:
 	@cp $(srctree)/gen3_defconfig $(objtree)/.config
+
+ka_defconfig:
+	@cp $(srctree)/ka_defconfig $(objtree)/.config
 
 # Create new linux.po file
 # Adjust charset to UTF-8 in .po file to accept UTF-8 in Kconfig files

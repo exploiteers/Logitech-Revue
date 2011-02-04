@@ -456,6 +456,18 @@ asmlinkage long sys_ptrace(long request, long pid, long addr, long data)
 	struct task_struct *child;
 	long ret;
 
+#ifndef CONFIG_PTRACE_SYSCALL
+    /*
+     * Logitech HACK
+     * Chrome needs ptrace capabilities to be able to read /proc/fds of
+     * some processes. So, ptrace cannot be completely removed from kernel
+     * as originally planned. However, keeping ptrace capability does make
+     * it very easy to maipulate processes using gdb.
+     * Make ptrace system call always fail.
+     */
+    return -ENOSYS;
+#endif //CONFIG_PTRACE_SYSCALL
+    
 	/*
 	 * This lock_kernel fixes a subtle race with suid exec
 	 */

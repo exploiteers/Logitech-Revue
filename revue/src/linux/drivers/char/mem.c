@@ -34,6 +34,9 @@
 # include <linux/efi.h>
 #endif
 
+#ifdef CONFIG_DEVMEM_PROTECT
+# include <asm-i386/e820.h>
+#endif 
 /*
  * Architectures vary in how they handle caching for addresses
  * outside of main memory.
@@ -120,6 +123,12 @@ static ssize_t read_mem(struct file * file, char __user * buf,
 	ssize_t read, sz;
 	char *ptr;
 
+    /* Deny access to Linux memory */
+#ifdef CONFIG_DEVMEM_PROTECT
+    if (e820_any_mapped(p, p + count, E820_RAM))
+        return -EACCES;
+#endif /* CONFIG_DEVMEM_PROTECT */
+    
 	if (!valid_phys_addr_range(p, count))
 		return -EFAULT;
 	read = 0;
@@ -178,6 +187,12 @@ static ssize_t write_mem(struct file * file, const char __user * buf,
 	unsigned long copied;
 	void *ptr;
 
+    /* Deny access to Linux memory */
+#ifdef CONFIG_DEVMEM_PROTECT
+    if (e820_any_mapped(p, p + count, E820_RAM))
+        return -EACCES;
+#endif /* CONFIG_DEVMEM_PROTECT */
+    
 	if (!valid_phys_addr_range(p, count))
 		return -EFAULT;
 
@@ -275,7 +290,13 @@ static inline int private_mapping_ok(struct vm_area_struct *vma)
 static int mmap_mem(struct file * file, struct vm_area_struct * vma)
 {
 	size_t size = vma->vm_end - vma->vm_start;
-
+    /* Deny access to Linux memory */
+#ifdef CONFIG_DEVMEM_PROTECT
+    unsigned long p = vma->vm_pgoff << PAGE_SHIFT;
+    if (e820_any_mapped(p, p + size, E820_RAM))
+        return -EACCES;
+#endif /* CONFIG_DEVMEM_PROTECT */
+    
 	if (!valid_mmap_phys_addr_range(vma->vm_pgoff, size))
 		return -EINVAL;
 

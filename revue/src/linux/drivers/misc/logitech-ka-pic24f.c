@@ -46,6 +46,8 @@
 #define PIC_CMD_NACK 		0x07
 #define PIC_CMD_START		0x08
 #define PIC_CMD_VERSION		0x09
+#define PIC_CMD_IR_STOP		91
+#define PIC_CMD_IRNOISE		93
 #define PIC_CMD_IRCAP_START	94
 #define PIC_CMD_IRTX_START	92
 #define PIC_CMD_IRTX_STOP	95
@@ -72,6 +74,7 @@
 #define IRLISTEN_BUF_SIZE	32*5
 #define TIMEOUT			10 * HZ /* 10 seconds */
 
+#define KEY_LED_DELAY		HZ/2 /* half a second */
 
 #define PIC24_IOC_MAGIC		('L' | 0x80)
 
@@ -96,6 +99,10 @@ struct pic24f_device {
 	struct tty_struct 	*tty;
 	wait_queue_head_t	wait;
 	struct semaphore	lock;
+	struct workqueue_struct	*workqueue;
+	struct delayed_work	led_work;
+	bool			led_on;
+	bool			key_pressed;
 
 	unsigned int		parser_state;
 	unsigned char		rx_buf[PIC_MAX_LEN];
@@ -112,10 +119,12 @@ struct pic24f_device {
 	wait_queue_head_t	irlisten_wait;
 	char               *irlisten_buf;
 	char               *irlisten_rp, *irlisten_wp;
+	int                 irlisten_opened;
 
 	unsigned char		acknack;
 	char			version[20]; // TODO max length?
 	int			cputemp;
+	int 			irnoise;
 	int			fanrpm;
 	int			irtx_finished;
 };
@@ -347,7 +356,10 @@ static void irlisten_rx_process (const unsigned char *cp, int count)
 	if (down_interruptible(&pic24f_device.irlisten_lock)) {
 		goto err;
 	}
-
+	if (!pic24f_device.irlisten_opened) {
+		up(&pic24f_device.irlisten_lock);
+		return;
+	}
 	while (count) {
 		if (pic24f_device.irlisten_rp == pic24f_device.irlisten_wp) {
 			free = IRLISTEN_BUF_SIZE;
@@ -405,8 +417,11 @@ static int pic24f_tty_open(struct tty_struct *tty)
 
 	set_baud(tty, B115200);
 
-	// TODO other init, maybe check firmware version?
+	/* turn off led */
+	pic24f_device.led_on = 1;
+	queue_delayed_work(pic24f_device.workqueue, &pic24f_device.led_work, 0);
 
+	// TODO other init, maybe check firmware version?
 	return 0;
 }
 
@@ -433,7 +448,7 @@ static int pic24f_msg_tx(struct pic24f_device *pic24f, bool unlock, const unsign
 {
 	int r, tries = 5;
 
-	if (pic24f->tty == NULL) {
+	if (!pic24f || pic24f->tty == NULL) {
 		return -EIO;
 	}
 
@@ -507,6 +522,13 @@ static void pic24f_msg_process(struct pic24f_device *pic24f)
 		n = pic24f->rx_buf[1];
 		memcpy(pic24f->version, pic24f->rx_buf + 2, n);
 		pic24f->version[n+1] = 0;
+		wake_up_interruptible(&pic24f->wait);
+		break;
+
+	case PIC_CMD_IRNOISE:
+		n = pic24f->rx_buf[1];
+
+		sscanf( pic24f->rx_buf+2, "%d", &pic24f->irnoise );
 		wake_up_interruptible(&pic24f->wait);
 		break;
 
@@ -601,6 +623,29 @@ static ssize_t pic24f_cputemp(struct device *dev, struct device_attribute *attr,
 
 DEVICE_ATTR(cputemp, S_IRUGO, &pic24f_cputemp, NULL);
 
+static ssize_t pic24f_irnoise(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int r;
+	unsigned char msg[PIC_MAX_LEN] = {
+		PIC_CMD_IRNOISE,
+	};
+
+	pic24f_device.irnoise = -1;
+	if ((r = pic24f_msg_tx(&pic24f_device, true, msg, 3)) < 0) {
+		return r;
+	}
+
+	if ((r = wait_event_interruptible_timeout(pic24f_device.wait, pic24f_device.irnoise >= 0, TIMEOUT)) < 0) {
+		return r;
+	}
+	if (pic24f_device.irnoise < 0) {
+		return -ETIME;
+	}
+
+	return sprintf(buf, "%d\n", pic24f_device.irnoise);
+}
+
+DEVICE_ATTR(irnoise, S_IRUGO, &pic24f_irnoise, NULL);
 
 static ssize_t pic24f_fanrpm(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -709,21 +754,6 @@ static ssize_t pic24f_program(struct device *dev, struct device_attribute *attr,
 }
 
 DEVICE_ATTR(program, S_IWUSR, NULL, &pic24f_program);
-
-
-static struct attribute *pic24f_attributes[] = {
-	&dev_attr_version.attr,
-	&dev_attr_cputemp.attr,
-	&dev_attr_fanrpm.attr,
-	&dev_attr_led1.attr,
-	&dev_attr_led2.attr,
-	&dev_attr_program.attr,
-	NULL
-};
-
-static const struct attribute_group pic24f_attr_group = {
-	.attrs = pic24f_attributes,
-};
 
 
 /*
@@ -981,6 +1011,7 @@ int pic24f_irlisten_open(struct inode *inode, struct file *file)
 		return -EIO;
 	}
 
+	pic24f_device.irlisten_opened = 1;
 	pic24f_device.irlisten_buf = kmalloc(IRLISTEN_BUF_SIZE, GFP_KERNEL);
 	pic24f_device.irlisten_rp = pic24f_device.irlisten_wp = pic24f_device.irlisten_buf;
 
@@ -1048,7 +1079,12 @@ unsigned int pic24f_irlisten_poll(struct file *file, poll_table *wait)
 
 int pic24f_irlisten_release(struct inode *inode, struct file *file)
 {
+	down(&pic24f_device.irlisten_lock);
+
+	pic24f_device.irlisten_opened = 0;
 	kfree(pic24f_device.irlisten_buf);
+
+	up(&pic24f_device.irlisten_lock);
 
 	return 0;
 }
@@ -1079,7 +1115,12 @@ int pic24f_irlisten_ioctl(struct inode *inode, struct file *file,
 		return 0;
 
 	case PIC24_IOCIRLISTENSTOP:
-		/* May be we never do a stop*/
+		msg[0] = PIC_CMD_IR_STOP;
+		/* send IR stop message to PIC,
+		   PIC will stop listening IR packets */
+		if ((r = pic24f_msg_tx(&pic24f_device, true, msg, 4)) < 0) {
+			return r;
+		}
 		return 0;
 
 	default:
@@ -1282,15 +1323,20 @@ static int pic24f_wdog_ioctl(struct inode *inode, struct file *file,
 	}
 }
 
-static int pic24f_wdog_notify_sys(struct notifier_block *this, unsigned long code,
-	void *unused)
+
+/* allow the watchdog to be disabled for debugging */
+static ssize_t pic24f_wdog_disable(struct device *dev, struct device_attribute *attr,
+				   const char *buf, size_t count)
 {
-	if(code == SYS_DOWN || code == SYS_HALT) {
-		/* Turn the WDT off */
+	if (strcmp(buf, "disable")) {
+		printk("WARNING: Watchdog disabled\n");
 		pic24f_wdog_stop();
 	}
-	return NOTIFY_DONE;
+	return count;
 }
+
+DEVICE_ATTR(wdogdisable, S_IWUSR, NULL, &pic24f_wdog_disable);
+
 
 static const struct file_operations pic24f_wdog_fops = {
 	.owner		= THIS_MODULE,
@@ -1301,14 +1347,27 @@ static const struct file_operations pic24f_wdog_fops = {
 	.release	= pic24f_wdog_release,
 };
 
-static struct notifier_block pic24f_dog_notifier = {
-	.notifier_call	= pic24f_wdog_notify_sys,
-};
-
 
 /*
  * Module init
  */
+static struct attribute *pic24f_attributes[] = {
+	&dev_attr_version.attr,
+	&dev_attr_cputemp.attr,
+	&dev_attr_irnoise.attr,
+	&dev_attr_fanrpm.attr,
+	&dev_attr_led1.attr,
+	&dev_attr_led2.attr,
+	&dev_attr_program.attr,
+	&dev_attr_wdogdisable.attr,
+	NULL
+};
+
+static const struct attribute_group pic24f_attr_group = {
+	.attrs = pic24f_attributes,
+};
+
+
 static struct pic24f_device pic24f_device = {
 	.ir_device	= {
 		.minor		= MISC_DYNAMIC_MINOR,
@@ -1338,6 +1397,111 @@ static struct pic24f_device pic24f_device = {
 };
 
 
+/* turn on/off key led based on input events */
+static void logitech_ka_led_work(struct work_struct *work)
+{
+	unsigned char msg[PIC_MAX_LEN] = {
+		PIC_CMD_GIGABYTE,
+		PIC_CMD_LED_CON,
+		70,
+		(pic24f_device.led_on) ? (133 - 70) : (131 - 70),
+	};
+
+	// we have no way to handle errors
+	pic24f_msg_tx(&pic24f_device, true, msg, 4);
+
+	pic24f_device.led_on = !pic24f_device.led_on;
+
+	if (pic24f_device.led_on && !pic24f_device.key_pressed) {
+		/* turn off led after a short delay */
+		queue_delayed_work(pic24f_device.workqueue, &pic24f_device.led_work, KEY_LED_DELAY);
+	}
+}
+
+
+/* input event */
+static void logitech_ka_pic_event(struct input_handle *handle, unsigned int type, unsigned int code, int value)
+{
+	if (type != EV_KEY && type != EV_REL && type != EV_ABS && type != EV_LED) {
+		return;
+	}
+
+	if (unlikely(!pic24f_device.tty)) {
+		return;
+	}
+
+	// are any keys pressed?
+	pic24f_device.key_pressed = (find_first_bit(handle->dev->key, KEY_MAX) < KEY_MAX);
+
+	cancel_delayed_work(&pic24f_device.led_work);
+	if (!pic24f_device.led_on) {
+		/* turn on led */
+		queue_delayed_work(pic24f_device.workqueue, &pic24f_device.led_work, 0);
+	}
+	else if (!pic24f_device.key_pressed) {
+		/* turn off led after a short delay */
+		queue_delayed_work(pic24f_device.workqueue, &pic24f_device.led_work, KEY_LED_DELAY);
+	}
+}
+
+static int logitech_ka_pic_connect(struct input_handler *handler, struct input_dev *dev,
+				   const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int error;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "ka_pic";
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err_free_handle;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err_unregister_handle;
+
+	printk(KERN_DEBUG "PIC: Connected device: \"%s\", %s\n", dev->name, dev->phys);
+
+	return 0;
+
+ err_unregister_handle:
+	input_unregister_handle(handle);
+ err_free_handle:
+	kfree(handle);
+	return error;
+}
+
+static void logitech_ka_pic_disconnect(struct input_handle *handle)
+{
+	printk(KERN_DEBUG "PIC: Disconnected device: %s\n", handle->dev->phys);
+
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id logitech_ka_pic_ids[] = {
+	{ .driver_info = 1 },	/* Matches all devices */
+	{ },			/* Terminating zero entry */
+};
+
+MODULE_DEVICE_TABLE(input, logitech_ka_pic_ids);
+
+static struct input_handler logitech_ka_pic_handler = {
+	.event =	logitech_ka_pic_event,
+	.connect =	logitech_ka_pic_connect,
+	.disconnect =	logitech_ka_pic_disconnect,
+	.name =		"ka_pic",
+	.id_table =	logitech_ka_pic_ids,
+};
+
+
 static int __init logitech_ka_pic_init(void)
 {
 	int ret;
@@ -1353,12 +1517,6 @@ static int __init logitech_ka_pic_init(void)
 	if (ret) {
 		printk(KERN_ERR "%s:%u: can't register line discipline %d\n",  __func__, __LINE__, ret);
 		goto err0;
-	}
-
-	ret = register_reboot_notifier(&pic24f_dog_notifier);
-	if (ret) {
-		printk(KERN_ERR "%s:%u: register_reboot_notifier failed %d\n", __func__, __LINE__, ret);
-		goto err1;
 	}
 
 	ret = misc_register(&pic24f_device.ir_device);
@@ -1418,8 +1576,27 @@ static int __init logitech_ka_pic_init(void)
 		goto err8;
 	}
 
+
+	pic24f_device.workqueue = create_workqueue("ka_pic");
+	if (!pic24f_device.workqueue) {
+		printk(KERN_ERR "%s:%u: create_workqueue failed\n", __func__, __LINE__);
+		goto err9;
+	}
+
+	INIT_DELAYED_WORK(&pic24f_device.led_work, logitech_ka_led_work);
+
+	ret = input_register_handler(&logitech_ka_pic_handler);
+	if (ret) {
+		printk(KERN_ERR "%s:%u: input_register_handler failed\n", __func__, __LINE__);
+		goto err10;
+	}
+
 	return 0;
 
+ err10:
+	destroy_workqueue(pic24f_device.workqueue);
+ err9:
+	sysfs_remove_group(&pic24f_device.ir_device.this_device->kobj, &pic24f_attr_group);
  err8:
 	input_unregister_device(pic24f_device.input_dev);
  err7:
@@ -1433,8 +1610,6 @@ static int __init logitech_ka_pic_init(void)
  err3:
 	misc_deregister(&pic24f_device.ir_device);
  err2:
-	unregister_reboot_notifier(&pic24f_dog_notifier);
- err1:
 	tty_unregister_ldisc(N_PIC24F);
  err0:
 	return ret;
@@ -1443,6 +1618,8 @@ static int __init logitech_ka_pic_init(void)
 
 static void __exit logitech_ka_pic_exit(void)
 {
+	input_unregister_handler(&logitech_ka_pic_handler);
+	destroy_workqueue(pic24f_device.workqueue);
 	sysfs_remove_group(&pic24f_device.ir_device.this_device->kobj, &pic24f_attr_group);
 	input_unregister_device(pic24f_device.input_dev);
 	misc_deregister(&pic24f_device.irlisten_device);
@@ -1450,7 +1627,6 @@ static void __exit logitech_ka_pic_exit(void)
 	misc_deregister(&pic24f_device.cec_device);
 	misc_deregister(&pic24f_device.ircap_device);
 	misc_deregister(&pic24f_device.ir_device);
-	unregister_reboot_notifier(&pic24f_dog_notifier);
 	tty_unregister_ldisc(N_PIC24F);
 }
 

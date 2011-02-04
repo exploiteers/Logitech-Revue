@@ -510,6 +510,16 @@ wpa_driver_madwifi_associate(void *priv,
     wpa_printf(MSG_WARNING, "%s", __func__);
 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
 
+	/*
+	 * If the device was earlier connected to a different accesspoint,
+	 * then Android will not send a dissassociate to this AP before making a new 
+	 * association. So we need to signal the Network state tracker that
+	 * we got disconnected from earlier AP, so that it can flush the 
+	 * DHCP and DNS addresses, and initiate new requests for the new AP.
+	 * If there is no existing association, then network state tracker 
+	 * will ignore this event.
+	 */
+	wpa_supplicant_event(drv->ctx, EVENT_DISASSOC, NULL);
 #ifdef MODIFIED_BY_SONY
 		(void)wpa_driver_wext_auth_alg_fallback(drv->wext, params);
 #endif /* MODIFIED_BY_SONY */
@@ -1044,24 +1054,75 @@ wpa_driver_madwifi_get_mac_addr(void *priv)
 int wpa_driver_madwifi_priv_driver_cmd ( void *priv, char *cmd, char *buf, size_t buf_len )
 {
 	struct wpa_driver_madwifi_data *drv = priv;
-    struct ifreq ifr;
-    unsigned char mac[6];
+	struct ifreq ifr;
+	struct iwreq wreq;
+	unsigned char mac[6];
+	athcfg_wcmd_t i_req;
+	athcfg_wcmd_stainfo_t stainfo;
+	unsigned int linkspeed = 0;
 
-    /* this is only for retrieving mac address now*/
-    if (os_strcasecmp(cmd, "MACADDR") != 0) {
-        return -1;
-    }
-    os_memset(&ifr, 0, sizeof(ifr));
-    os_strncpy(ifr.ifr_name, drv->ifname, os_strlen(drv->ifname));
+	if (os_strcasecmp(cmd, "RSSI-APPROX") == 0) {
+		os_strncpy(cmd, "RSSI", MAX_DRV_CMD_SIZE);
+	}
+	if ((os_strcasecmp(cmd, "MACADDR") != 0) &&
+		(os_strcasecmp(cmd, "RSSI") != 0)    &&
+		(os_strcasecmp(cmd, "LINKSPEED") != 0)) {
+		LOGE ("INVALID request to the wlan driver %s", cmd);
+		return -1;
+	}
+	os_memset(&ifr, 0, sizeof(ifr));
+	os_strncpy(ifr.ifr_name, drv->ifname, os_strlen(drv->ifname));
 
-    if (ioctl(drv->sock, SIOCGIFHWADDR, &ifr) < 0) {
-        LOGE ("wpa_driver_priv_driver_cmd failed");
-        return -1;
-    }
-    memcpy (mac, ifr.ifr_addr.sa_data, 6);
-    sprintf (buf, "Macaddr = %02x.%02x.%02x.%02x.%02x.%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    LOGI ("%s\n", buf);
-    return strlen (buf);
+	if (os_strcasecmp(cmd, "MACADDR") == 0) {
+		if (ioctl(drv->sock, SIOCGIFHWADDR, &ifr) < 0) {
+			return -1;
+		}
+		memcpy (mac, ifr.ifr_addr.sa_data, 6);
+		sprintf (buf, "Macaddr = %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		LOGI ("%s\n", buf);
+	}
+	else if (os_strcasecmp(cmd, "RSSI") == 0) {
+		os_memset(&i_req, 0, sizeof(athcfg_wcmd_t));
+		os_memset(&mac, 0, sizeof(athcfg_ethaddr_t));
+		os_strncpy(i_req.if_name, drv->ifname, os_strlen(drv->ifname));
+
+		i_req.type = ATHCFG_WCMD_GET_STATION_LIST;
+		i_req.d_station = &stainfo;
+		
+		if (adf_do_ioctl(drv->sock, SIOCGADFWIOCTL, &i_req) < 0) {
+			return -1;
+		}     
+		/*
+		 * Units are in db above the noise floor. That means the
+		 * rssi values reported in the tx/rx descriptors in the
+		 * driver are the SNR expressed in db.
+		 *
+		 * If you assume that the noise floor is -95, which is an
+		 * excellent assumption 99.5 % of the time, then you can
+		 * derive the absolute signal level (i.e. -95 + rssi).
+		 */
+		sprintf (buf, "rssi %d\n", -95 + i_req.d_station->list[0].isi_rssi);
+		//LOGI("adf_rssi %d", i_req.d_station->list[0].isi_rssi);
+	}
+	else if (os_strcasecmp(cmd, "LINKSPEED") == 0) {
+		/*
+		 * this api requires to run on wifi0 interface not ath0.
+		 */
+		char ifname[] = "wifi0";
+		athcfg_wcmd_tgt_phystats_t tgt11n_phystats;
+
+		strncpy(i_req.if_name, ifname, strlen(ifname));
+		memset(&tgt11n_phystats, 0, sizeof(athcfg_wcmd_tgt_phystats_t));
+		i_req.type = ATHCFG_WCMD_GET_DEV_TGT_11N_STATS;
+	
+		if (adf_do_ioctl(drv->sock, SIOCGADFWIOCTL, &i_req) < 0) {
+			return -1;
+		}     
+		linkspeed = i_req.d_tgtstats->ast_11n_tgt.tx_rate/1000;
+		//LOGI("linkspeed %d", linkspeed);
+		sprintf (buf, "LinkSpeed %d\n", linkspeed);
+	}
+	return strlen(buf);
 }
 #endif
 const struct wpa_driver_ops wpa_driver_adf_ops = {

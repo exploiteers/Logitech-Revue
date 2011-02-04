@@ -91,6 +91,10 @@ config DMI
 	bool
 	default y
 
+config PTRACE_SYSCALL
+    bool "Enable ptrace system call"
+    default y
+
 source "init/Kconfig"
 
 menu "Processor type and features"

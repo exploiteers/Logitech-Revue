@@ -17,7 +17,7 @@
 #include <linux/module.h>
 
 #define DRV_NAME        	"cad"
-#define DRV_VERSION     	"0.2"
+#define DRV_VERSION     	"0.3"
 #define DRV_DESC        	"Simple Ctrl-Alt-Del input handler"
 
 MODULE_DESCRIPTION(DRV_DESC);
@@ -34,15 +34,10 @@ enum {
 	RIGHT_ALT,
 	DELETE,
 	BACKSPACE,
+	LEFT_SHIFT,
+	RIGHT_SHIFT,
+	HOME,
 };
-
-#ifdef CONFIG_CAD_HANDLER_BACKSPACE
-#define __KEY_BACKSPACE		KEY_BACKSPACE
-#define __BIT_BACKSPACE		BACKSPACE
-#else
-#define __KEY_BACKSPACE		KEY_DELETE
-#define __BIT_BACKSPACE		DELETE
-#endif
 
 static void cad_event(struct input_handle *handle, unsigned int event_type,
 		      unsigned int event_code, int down)
@@ -61,26 +56,48 @@ static void cad_event(struct input_handle *handle, unsigned int event_type,
 	case KEY_RIGHTCTRL:	bit = RIGHT_CTRL; break;
 	case KEY_LEFTALT:	bit = LEFT_ALT; break;
 	case KEY_RIGHTALT:	bit = RIGHT_ALT; break;
+	case KEY_LEFTSHIFT:	bit = LEFT_SHIFT; break;
+	case KEY_RIGHTSHIFT:	bit = RIGHT_SHIFT; break;
 	case KEY_DELETE:	bit = DELETE; break;
 	case KEY_BACKSPACE:	bit = BACKSPACE; break;
+	case KEY_HOME:		bit = HOME; break;
 	default:
 		return;
 	}
 
 	/* we use handle->private to store bitmask of currently pressed keys */
 	mask = (unsigned long*)&handle->private;
-	if (down)
+	if (down) {
 		set_bit(bit, mask);
-	else
+	} else {
 		clear_bit(bit, mask);
+		return;
+	}
 
-	/* test for Ctrl-Alt-Del/{Backspace} ignoring repeats */
-	if (down == 1 &&
-	    (test_bit(DELETE, mask) || test_bit(__BIT_BACKSPACE, mask)) &&
-	    (test_bit(LEFT_CTRL, mask) || test_bit(RIGHT_CTRL, mask)) &&
-	    (test_bit(LEFT_ALT, mask) || test_bit(RIGHT_ALT, mask))) {
+	/* CTRL-ALT-DEL */
+	if ((test_bit(LEFT_CTRL, mask) || test_bit(RIGHT_CTRL, mask)) &&
+	    (test_bit(LEFT_ALT, mask) || test_bit(RIGHT_ALT, mask)) &&
+	    test_bit(DELETE, mask)) {
 		ctrl_alt_del();
 	}
+
+#ifdef CONFIG_CAD_HANDLER_CTRL_ALT_BACKSPACE
+	/* CTRL-ALT-BACKSPACE */
+	if ((test_bit(LEFT_CTRL, mask) || test_bit(RIGHT_CTRL, mask)) &&
+	    (test_bit(LEFT_ALT, mask) || test_bit(RIGHT_ALT, mask)) &&
+	    test_bit(BACKSPACE, mask)) {
+		ctrl_alt_del();
+	}
+#endif
+
+#ifdef CONFIG_CAD_HANDLER_ALT_SHIFT_HOME
+	/* ALT-SHIFT-HOME */
+	if ((test_bit(LEFT_ALT, mask) || test_bit(RIGHT_ALT, mask)) &&
+	    (test_bit(LEFT_SHIFT, mask) || test_bit(RIGHT_SHIFT, mask)) &&
+	    test_bit(HOME, mask)) {
+		ctrl_alt_del();
+	}
+#endif
 }
 
 static int cad_connect(struct input_handler *handler, struct input_dev *dev,
@@ -88,20 +105,38 @@ static int cad_connect(struct input_handler *handler, struct input_dev *dev,
 {
 	struct input_handle *handle;
 	int err;
+	int have_combo = 0;
 
-	/* We are only interested in devices that have
-	 * Ctrl, Alt and Delete buttons
+	/* We are only interested in devices that support one of the configured
+	 * combos.
 	 */
-	if (!test_bit(KEY_LEFTCTRL, dev->keybit) &&
-	    !test_bit(KEY_RIGHTCTRL, dev->keybit))
-		return -ENODEV;
 
-	if (!test_bit(KEY_LEFTALT, dev->keybit) &&
-	    !test_bit(KEY_RIGHTALT, dev->keybit))
-		return -ENODEV;
+	if ((test_bit(KEY_LEFTCTRL, dev->keybit) ||
+	     test_bit(KEY_RIGHTCTRL, dev->keybit)) &&
+	    (test_bit(KEY_LEFTALT, dev->keybit) ||
+	     test_bit(KEY_RIGHTALT, dev->keybit)) &&
+	    test_bit(KEY_DELETE, dev->keybit))
+		have_combo = 1;
 
-	if (!test_bit(KEY_DELETE, dev->keybit) &&
-	    !test_bit(__KEY_BACKSPACE, dev->keybit))
+#ifdef CONFIG_CAD_HANDLER_CTRL_ALT_BACKSPACE
+	if ((test_bit(KEY_LEFTCTRL, dev->keybit) ||
+	     test_bit(KEY_RIGHTCTRL, dev->keybit)) &&
+	    (test_bit(KEY_LEFTALT, dev->keybit) ||
+	     test_bit(KEY_RIGHTALT, dev->keybit)) &&
+	    test_bit(KEY_BACKSPACE, dev->keybit))
+		have_combo = 1;
+#endif
+
+#ifdef CONFIG_CAD_HANDLER_ALT_SHIFT_HOME
+	if ((test_bit(KEY_LEFTALT, dev->keybit) ||
+	     test_bit(KEY_RIGHTALT, dev->keybit)) &&
+	    (test_bit(KEY_LEFTSHIFT, dev->keybit) ||
+	     test_bit(KEY_RIGHTSHIFT, dev->keybit)) &&
+	    test_bit(KEY_HOME, dev->keybit))
+		have_combo = 1;
+#endif
+
+	if (!have_combo)
 		return -ENODEV;
 
 	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
