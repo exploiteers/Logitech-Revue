@@ -1,0 +1,152 @@
+if ARCH_DAVINCI_TRUE
+
+choice
+	prompt "DaVinci Specific Core Type"
+	default ARCH_DAVINCI644x
+
+config ARCH_DAVINCI644x
+	bool "DM644x"
+
+config ARCH_DAVINCI_DM355
+	bool "DM355"
+
+config ARCH_DAVINCI_DM365
+	bool "DaVinci DM365 based system"
+
+config ARCH_DAVINCI_DM646x
+        bool "DM646x"
+
+config ARCH_DAVINCI_DM357
+        bool "DM357"
+
+endchoice
+
+choice
+	prompt "DaVinci Board Type"
+        default MACH_DAVINCI_EVM
+
+config MACH_DAVINCI_EVM
+	bool "TI DaVinci EVM"
+	depends on ARCH_DAVINCI644x
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a DaVinci EVM
+
+config MACH_DAVINCI_DM355_EVM
+	bool "TI DM355 EVM"
+	depends on ARCH_DAVINCI_DM355
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a DM355 EVM
+
+config MACH_DAVINCI_DM365_EVM
+	bool "TI DM365 EVM"
+	default n
+	depends on ARCH_DAVINCI_DM365
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a DM365 EVM
+	  
+config MACH_DAVINCI_DM365_IPNC
+	bool "TI DM365 IPNC"
+	default n
+	depends on ARCH_DAVINCI_DM365
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a DM365 IPNC	  
+
+config MACH_DAVINCI_DM6467_EVM
+        bool "TI DM646x EVM"
+        depends on ARCH_DAVINCI_DM646x
+        help
+          Configure this option to specify the whether the board used
+          for development is a DM646x EVM
+
+config MACH_DAVINCI_DM357_EVM
+	bool "TI DM357 EVM"
+	depends on ARCH_DAVINCI_DM357
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a TI DM357 EVM
+
+config MACH_DAVINCI_WOLVERINE
+	bool "Logitech DM365 Wolverine"
+	default n
+	depends on ARCH_DAVINCI_DM365
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a Logitech DM365 Wolverine
+
+endchoice
+
+config DAVINCI_EVM_CF_SUPPORT
+	bool "CF card support"
+	depends on MACH_DAVINCI_EVM
+	default y
+	help
+	  Configure this option to enable CompactFlash card support.
+
+config DAVINCI_NAND_256KB_BLOCKS
+        bool "NAND chip installed on DM355/DM365 EVMs has 256KB blocks"
+        default y
+        depends on MACH_DAVINCI_DM355_EVM || MACH_DAVINCI_DM365_EVM || MACH_DAVINCI_DM365_IPNC || MACH_DAVINCI_WOLVERINE
+        help
+        The boot firmware on the DM355/DM365 EVM assumes a default partition
+        map for NAND flash based on erase block offsets. Thus, the partition
+        map varies based on the size of the erase blocks in the particular NAND
+        flash component installed on the board.  Answer Y here if the NAND
+        chip (e.g a 16 Gigabit Micron MT29F16G08QAA) installed on your board
+        has 256KB blocks.  Answer N here if the NAND chip (e.g. a 4 Gigabit
+        Micron MT29F4G08AAA) installed on your board has 128KB blocks.
+
+config DAVINCI_NAND_STD_LAYOUT
+	bool "Support for standard NAND layout on DaVinci SOC's"
+	default y
+	depends on MACH_DAVINCI_DM355_EVM || MACH_DAVINCI_DM365_EVM || MACH_DAVINCI_DM365_IPNC || MACH_DAVINCI_WOLVERINE
+	help
+	  Support for the standard layout on DaVinci SOC's. Select this
+	  option for enabling the new standard layout. Disabling this option
+	  uses the legacy layout in DaVinci SOC's. Using Legacy layout is not
+	  recommended.
+
+config DM357_STORAGE_NAND
+	bool "Use storage NAND"
+	default y
+	depends on MACH_DAVINCI_DM357_EVM
+	help
+	  Configure this option to choose the appropriate NAND in DM357
+	  Choose y for 2 GB storage NAND or n for 64 MB boot NAND
+
+config DAVINCI_KERNEL_SDRAM_OFFSET
+	hex "SDRAM offset for the Kernel"
+	default "0x0"
+	help
+	  Provide SDRAM offset, if you want to relocate Kernel image to a
+	  different location (other than the DDR_BASE) in the SDRAM.
+	  For e.g, if want to place DSP image in the beginning of the SDRAM,
+	  provide DSP size as the SDRAM offset. Kernel image will then start
+	  after the reserved SDRAM space for DSP. The default value is 0, which
+	  means the Kernel will start at the DDR_BASE location.
+
+config DAVINCI_KERNEL_ZRELADDR
+	hex "ZRELADDR location for the Kernel"
+	default "0x80008000"
+	help
+	  Provide ZRELADDR location for the kernel. The value should match with
+	  default + SDRAM_OFFSET.
+
+config DAVINCI_KERNEL_PARAMS_PHYS
+	hex "PARAMS_PHYS location for the Kernel"
+	default "0x80000100"
+	help
+	  Provide PARAMS_PHYS location for the kernel. The value should match
+	  with default + SDRAM_OFFSET.
+
+config DAVINCI_KERNEL_INITRD_PHYS
+	hex "INITRD_PHYS location"
+	default "0x80800000"
+	help
+	  Provide INITRD_PHYS location for the kernel. The value should match
+	  with default + SDRAM_OFFSET.
+
+endif

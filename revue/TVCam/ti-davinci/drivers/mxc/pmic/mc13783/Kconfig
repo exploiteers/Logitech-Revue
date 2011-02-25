@@ -1,0 +1,11 @@
+#
+# PMIC Modules configuration
+#
+
+config MXC_MC13783_AUDIO
+	tristate "MC13783 Audio support"
+	depends on MXC_PMIC_MC13783
+	help
+	  This is the MC13783 audio module driver. This module provides kernel API
+	  for audio part of MC13783.
+	  If you want MC13783 audio support, you should say Y here

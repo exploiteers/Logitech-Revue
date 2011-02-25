@@ -1,0 +1,11 @@
+menu "VLYNQ support"
+
+config DAVINCI_VLYNQ
+	tristate "TI DaVinci VLYNQ Driver"
+	default y
+	depends on ARCH_DAVINCI644x || ARCH_DAVINCI_DM646x
+	help
+	  Configure this option to specify whether the Vlynq Driver is included
+	  in the kernel.
+
+endmenu

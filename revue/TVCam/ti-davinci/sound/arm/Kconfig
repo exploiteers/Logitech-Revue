@@ -1,0 +1,88 @@
+# ALSA ARM drivers
+
+menu "ALSA ARM devices"
+	depends on SND!=n && ARM
+
+config SND_SA11XX_UDA1341
+	tristate "SA11xx UDA1341TS driver (iPaq H3600)"
+	depends on ARCH_SA1100 && SND && L3
+	select SND_PCM
+	help
+	  Say Y here if you have a Compaq iPaq H3x00 handheld computer
+	  and want to use its Philips UDA 1341 audio chip.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-sa11xx-uda1341.
+
+config SND_ARMAACI
+	tristate "ARM PrimeCell PL041 AC Link support"
+	depends on SND && ARM_AMBA
+	select SND_PCM
+	select SND_AC97_CODEC
+
+config SND_PXA2XX_PCM
+	tristate
+	select SND_PCM
+
+config SND_PXA2XX_AC97
+	tristate "AC97 driver for the Intel PXA2xx chip"
+	depends on ARCH_PXA && SND
+	select SND_PXA2XX_PCM
+	select SND_AC97_CODEC
+	help
+	  Say Y or M if you want to support any AC97 codec attached to
+	  the PXA2xx AC97 interface.
+
+config SND_OMAP_AIC23
+	tristate "OMAP AIC23 alsa driver (osk5912)"
+	depends on ARCH_OMAP && SND
+	select SND_PCM
+	select I2C
+	select I2C_OMAP if ARCH_OMAP
+	select SENSORS_TLV320AIC23
+	help
+	  Say Y here if you have a OSK platform board
+	  and want to use its AIC23 audio chip.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-omap-aic23.
+	  
+config SND_OMAP_TSC2101
+ 	tristate "OMAP TSC2101 alsa driver"
+ 	depends on ARCH_OMAP && SND
+ 	select SND_PCM
+         select OMAP_TSC2101
+         select OMAP_UWIRE if ARCH_OMAP
+ 	help
+ 	  Say Y here if you have a OMAP platform board
+ 	  and want to use its TSC2101 audio chip. Driver has
+ 	  been tested with H2 and iPAQ h6300.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-omap-tsc2101.
+
+config SND_OMAP_TSC2102
+ 	tristate "OMAP TSC2102 alsa driver"
+ 	depends on ARCH_OMAP && SND
+ 	select SND_PCM
+	select TSC2102
+ 	help
+ 	  Say Y here if you have an OMAP platform board
+ 	  and want to use its TSC2102 audio chip.
+
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called snd-omap-tsc2102.
+
+config SND_MXC_PMIC
+       tristate "MXC PMIC sound system"
+       depends on ARCH_MXC && MXC_DAM && MXC_SSI && MXC_MC13783_AUDIO
+       default y
+       select SND_PCM
+       help
+         Say Y here to include support for soundcards based on the
+         MC13783 chip.
+
+         To compile this driver as a module, choose M here: the module
+         will be called snd-mc13783.
+
+endmenu

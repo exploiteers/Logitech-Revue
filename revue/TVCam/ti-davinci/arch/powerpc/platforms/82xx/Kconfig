@@ -1,0 +1,20 @@
+choice
+       prompt "82xx Board Type"
+       depends on PPC_82xx
+       default MPC8272ADS
+
+config MPC8272ADS
+       bool "Freescale MPC8272ADS"
+       select DEFAULT_UIMAGE
+       select PQ2ADS
+       select 8272
+       select 8260
+       select FSL_SOC
+       select PQ2_ADS_PCI_PIC if PCI
+       help
+         This option enables support for the MPC8272 ADS board
+
+endchoice
+
+config PQ2_ADS_PCI_PIC
+	bool

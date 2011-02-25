@@ -1,0 +1,228 @@
+#
+# IPv6 configuration
+#
+
+#   IPv6 as module will cause a CRASH if you try to unload it
+config IPV6
+	tristate "The IPv6 protocol"
+	default m
+	---help---
+	  This is complemental support for the IP version 6.
+	  You will still be able to do traditional IPv4 networking as well.
+
+	  For general information about IPv6, see
+	  <http://playground.sun.com/pub/ipng/html/ipng-main.html>.
+	  For Linux IPv6 development information, see <http://www.linux-ipv6.org>.
+	  For specific information about IPv6 under Linux, read the HOWTO at
+	  <http://www.bieringer.de/linux/IPv6/>.
+
+	  To compile this protocol support as a module, choose M here: the 
+	  module will be called ipv6.
+
+config IPV6_PRIVACY
+	bool "IPv6: Privacy Extensions support"
+	depends on IPV6
+	---help---
+	  Privacy Extensions for Stateless Address Autoconfiguration in IPv6
+	  support.  With this option, additional periodically-alter 
+	  pseudo-random global-scope unicast address(es) will assigned to
+	  your interface(s).
+	
+	  We use our standard pseudo random algorithm to generate randomized
+	  interface identifier, instead of one described in RFC 3041.
+
+	  By default, kernel do not generate temporary addresses.
+	  To use temporary addresses, do
+	
+	        echo 2 >/proc/sys/net/ipv6/conf/all/use_tempaddr 
+
+	  See <file:Documentation/networking/ip-sysctl.txt> for details.
+
+config IPV6_ROUTER_PREF
+	bool "IPv6: Router Preference (RFC 4191) support"
+	depends on IPV6
+	---help---
+	  Router Preference is an optional extension to the Router
+	  Advertisement message to improve the ability of hosts
+	  to pick more appropriate router, especially when the hosts
+	  is placed in a multi-homed network.
+
+	  If unsure, say N.
+
+config IPV6_ROUTE_INFO
+	bool "IPv6: Route Information (RFC 4191) support (EXPERIMENTAL)"
+	depends on IPV6_ROUTER_PREF && EXPERIMENTAL
+	---help---
+	  This is experimental support of Route Information.
+
+	  If unsure, say N.
+
+config INET6_AH
+	tristate "IPv6: AH transformation"
+	depends on IPV6
+	select XFRM
+	select CRYPTO
+	select CRYPTO_HMAC
+	select CRYPTO_MD5
+	select CRYPTO_SHA1
+	---help---
+	  Support for IPsec AH.
+
+	  If unsure, say Y.
+
+config INET6_ESP
+	tristate "IPv6: ESP transformation"
+	depends on IPV6
+	select XFRM
+	select CRYPTO
+	select CRYPTO_HMAC
+	select CRYPTO_MD5
+	select CRYPTO_SHA1
+	select CRYPTO_DES
+	---help---
+	  Support for IPsec ESP.
+
+	  If unsure, say Y.
+
+config INET6_IPCOMP
+	tristate "IPv6: IPComp transformation"
+	depends on IPV6
+	select XFRM
+	select INET6_XFRM_TUNNEL
+	select CRYPTO
+	select CRYPTO_DEFLATE
+	---help---
+	  Support for IP Payload Compression Protocol (IPComp) (RFC3173),
+	  typically needed for IPsec.
+
+	  If unsure, say Y.
+
+config INET6_XFRM_TUNNEL
+	tristate
+	select INET6_TUNNEL
+	default n
+
+config INET6_TUNNEL
+	tristate
+	default n
+
+config INET6_XFRM_MODE_TRANSPORT
+	tristate "IPv6: IPsec transport mode"
+	depends on IPV6
+	default IPV6
+	select XFRM
+	---help---
+	  Support for IPsec transport mode.
+
+	  If unsure, say Y.
+
+config INET6_XFRM_MODE_TUNNEL
+	tristate "IPv6: IPsec tunnel mode"
+	depends on IPV6
+	default IPV6
+	select XFRM
+	select IPV6_TUNNEL
+	---help---
+	  Support for IPsec tunnel mode.
+
+	  If unsure, say Y.
+
+config IPV6_TUNNEL
+	tristate "IPv6: IPv6-in-IPv6 tunnel"
+	select INET6_TUNNEL
+	depends on IPV6
+	---help---
+	  Support for IPv6-in-IPv6 tunnels described in RFC 2473.
+
+	  If unsure, say N.
+
+config IPV6_MROUTE
+	bool "IPv6: multicast routing (EXPERIMENTAL)"
+	depends on IPV6 && EXPERIMENTAL
+	---help---
+	  Experimental support for IPv6 multicast forwarding.
+	  If unsure, say N.
+
+config IPV6_PIMSM_V2
+	bool "IPv6: PIM-SM version 2 support (EXPERIMENTAL)"
+	depends on IPV6_MROUTE
+	---help---
+	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
+	  If unsure, say N.
+
+config IPV6_STATISTICS
+	bool "IPv6: per-interface statistics for SNMP"
+	depends on IPV6 && EXPERIMENTAL
+
+config IPV6_STATISTICS_DEBUG
+	bool "IPv6: debug per-interface statistics for SNMP"
+	depends on IPV6_STATISTICS
+	---help---
+	  Say N.
+
+config IPV6_ADVANCED_ROUTER
+	bool "IPv6: advanced router (EXPERIMENTAL)"
+	depends on IPV6 && EXPERIMENTAL
+	---help---
+	  If you intend to run your Linux box mostly as an IPv6 router
+	  or otherwise need more advanced routing features, say Y; you
+	  will then be presented with several options that allow more
+	  precise control about the routing process.
+
+	  The answer to this question won't directly affect the kernel:
+	  answering N will just cause the configurator to skip all the
+	  questions about advanced routing.
+
+	  If unsure, say N.
+
+config IPV6_MULTIPLE_TABLES
+	bool "IPv6: Multiple Routing Tables"
+	depends on IPV6 && EXPERIMENTAL
+	select FIB_RULES
+	---help---
+	  Normally, a router decides what to do with a received packet based
+	  solely on the packet's final destination address.  If you say Y here,
+	  the Linux router will also be able to take the packet's source
+	  address and incoming interface into account.
+
+	  If unsure, say N.
+
+config IPV6_SUBTREES
+	bool "IPv6: Source Address based Routing"
+	depends on IPV6 && EXPERIMENTAL
+	---help---
+	  Enable policy routing by source address or prefix.  To set up source
+	  address based routing you need to define source prefix specific
+	  policy rules using iproute2 or a similar tool.
+
+	  As the first matching policy rule is always applied, policy rules
+	  should be ordered by decreasing source and destination prefix length,
+	  with the exception of the preconfigured special local rule.
+
+	  The destination address is still the primary routing key, so mixing
+	  normal and source prefix specific routes in the same routing table
+	  may sometimes lead to unintended routing behavior.  This can be
+	  avoided by defining different routing tables for the normal and
+	  source prefix specific routes.
+
+	  If unsure, say N.
+
+config IPV6_MIP6
+	bool "IPv6: Mobility (EXPERIMENTAL)"
+	depends on IPV6 && EXPERIMENTAL
+	select XFRM
+	select XFRM_USER
+	select XFRM_ENHANCEMENT
+	---help---
+	  Support for IPv6 Mobility.
+
+	  If unsure, say N.
+
+config IPV6_MIP6_DEBUG
+	bool "IPv6: Moblity Debug Message"
+	depends on IPV6_MIP6
+	---help---
+	  Be sure to say Y and record debug messages when submitting a
+	  bug report.
+	  If unsure, say N.
+

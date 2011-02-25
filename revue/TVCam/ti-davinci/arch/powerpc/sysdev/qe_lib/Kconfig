@@ -1,0 +1,33 @@
+#
+# QE Communication options
+#
+
+config UCC_SLOW
+	bool
+	default n
+	help
+	  This option provides qe_lib support to UCC slow
+	  protocols: UART, BISYNC, QMC
+
+config UCC_FAST
+	bool
+	default y if UCC_GETH
+	help
+	  This option provides qe_lib support to UCC fast
+	  protocols: HDLC, Ethernet, ATM, transparent
+
+config UCC
+	bool
+	default y if UCC_FAST || UCC_SLOW
+
+config QE_GTM
+	bool
+	default y if USB_FHCI_HCD
+	help
+	  QE General-Purpose Timers Module support
+
+config QE_USB
+	bool
+	default y if USB_FHCI_HCD
+	help
+	  QE USB Host Controller support

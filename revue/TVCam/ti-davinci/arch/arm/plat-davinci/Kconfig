@@ -1,0 +1,60 @@
+if ARCH_DAVINCI
+
+comment "TI DaVinci Implementations"
+
+choice
+	prompt "DaVinci Core Type"
+	default ARCH_DAVINCI_TRUE
+
+config ARCH_DAVINCI_TRUE
+	bool "True DaVinci Core"
+
+config ARCH_DA8XX
+	bool "DA830/OMAP-L137 DaVinci-like Core"
+	select TI_CP_INTC
+
+endchoice
+
+config DAVINCI_MUX
+	bool "DAVINCI multiplexing support"
+	default y
+	help
+	  Pin multiplexing support for DAVINCI boards. If your bootloader
+	  sets the multiplexing correctly, say N. Otherwise, or if unsure,
+	  say Y.
+
+config DAVINCI_MUX_DEBUG
+	bool "Multiplexing debug output"
+	depends on DAVINCI_MUX
+	help
+	  Makes the multiplexing functions print out a lot of debug info.
+	  This is useful if you want to find out the correct values of the
+	  multiplexing registers.
+
+config DAVINCI_MUX_WARNINGS
+	bool "Warn about pins the bootloader didn't set up"
+	depends on DAVINCI_MUX
+	default y
+	help
+	  Choose Y here to warn whenever driver initialization logic needs
+	  to change the pin multiplexing setup.  When there are no warnings
+	  printed, it's safe to deselect DAVINCI_MUX for your product.
+
+config DAVINCI_I2C_EXPANDER
+	bool "TI DaVinci I2C Expander support"
+	default y
+	depends on I2C
+	help
+	  Configure this option to specify whether the board used has I2C
+	  expander which controls ATA, CF, USB.
+
+config SKIP_EDMA3_REGS_INIT
+	bool "Skip EDMA3 global registers initalization"
+	default n
+	help
+	  Select this option if EDMA3 global registers
+	  (Event Queue Priority, Event Queue Watermark Level,
+	  Error and PaRAM) are initialized by DSP code and
+	  ARM should not overwrite it.
+
+endif

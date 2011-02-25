@@ -1,0 +1,397 @@
+config LTT
+	bool "Linux Trace Toolkit Instrumentation Support"
+	depends on EXPERIMENTAL
+	select LTT_HEARTBEAT if MIPS
+	select LTT_SYNTHETIC_TSC if MIPS
+	default n
+	help
+	  It is possible for the kernel to log important events to a trace
+	  facility. Doing so, enables the use of the generated traces in order
+	  to reconstruct the dynamic behavior of the kernel, and hence the
+	  whole system.
+
+	  The tracing process contains 4 parts :
+	      1) The logging of events by key parts of the kernel.
+	      2) The tracer that keeps the events in a data buffer (uses
+	         relayfs).
+	      3) A trace daemon that interacts with the tracer and is
+	         notified every time there is a certain quantity of data to
+	         read from the tracer.
+	      4) A trace event data decoder that reads the accumulated data
+	         and formats it in a human-readable format.
+
+	  If you say Y, the first component will be built into the kernel.
+
+	  For more information on kernel tracing, the trace daemon or the event
+	  decoder, please check the following address :
+	       http://www.opersys.com/ltt
+	  See also the experimental page of the project :
+	       http://ltt.polymtl.ca
+
+config LTT_TRACER
+	tristate "Linux Trace Toolkit Tracer"
+	depends on LTT
+	default y
+	help
+	  If you enable this option, the Linux Trace Toolkit Tracer will be
+	  either built in the kernel or as module.
+
+	  Critical parts of the kernel will call upon the kernel tracing
+	  function. The data is then recorded by the tracer if a trace daemon
+	  is running in user-space and has issued a "start" command.
+
+	  For more information on kernel tracing, the trace daemon or the event
+	  decoder, please check the following address :
+	       http://www.opersys.com/ltt
+	  See also the experimental page of the project :
+	       http://ltt.polymtl.ca
+
+config LTT_RELAY
+	tristate "Linux Trace Toolkit Relay+DebugFS Support"
+	select RELAY
+	select DEBUG_FS
+	depends on LTT
+	depends on LTT_TRACER
+	default y
+	help
+	  Support using relay and debugfs to log the data obtained through LTT.
+
+	  If you don't have special hardware, you almost certainly want
+	  to say Y here.
+
+config LTT_ALIGNMENT
+	bool "Align Linux Trace Toolkit Traces"
+	depends on LTT
+	default y
+	help
+	  This option enables dynamic alignment of data in buffers. The
+	  alignment is made on the smallest size between architecture size
+	  and the size of the value to be written.
+
+	  Dynamically calculating the offset of the data has a performance cost,
+	  but it is more efficient on some architectures (especially 64 bits) to
+	  align data than to write it unaligned.
+
+config LTT_HEARTBEAT
+	bool "Activate Linux Trace Toolkit Heartbeat Timer"
+	depends on LTT
+	default n
+	help
+	  The Linux Trace Toolkit Heartbeat Timer fires at an interval small
+	  enough to guarantee that the 32 bits truncated TSC won't overflow
+	  between two timer execution.
+
+config LTT_HEARTBEAT_EVENT
+	bool "Write heartbeat event to shrink traces"
+	depends on LTT_HEARTBEAT
+	default y
+	help
+	  This option makes the heartbeat timer write an event in each tracefile
+	  at an interval that is one tenth of the time it takes to overflow 32
+	  bits at your CPU frequency.
+
+	  If this option is not enabled, 64 bits fields must be used in each
+	  event header to save the full TSC : it can make traces about 1/10
+	  bigger. It is suggested that you enable this option to make more
+	  compact traces.
+
+config LTT_SYNTHETIC_TSC
+	bool "Keep a synthetic cpu timestamp counter"
+	depends on LTT_HEARTBEAT
+	default n
+	help
+	  This option is only useful on archtecture lacking a 64 bits timestamp
+	  counter : it generates a "synthetic" 64 bits timestamp by updating
+	  the 32 MSB at each heartbeat atomically. See kernel/ltt-heartbeat.c
+	  for details.
+
+config LTT_USERSPACE_GENERIC
+	bool "Allow tracing from userspace"
+	depends on LTT
+	default y
+	help
+	  This options allows processes to trace through the ltt_trace_generic
+	  system call after they have registered their facilities with
+	  ltt_register_generic.
+
+config LTT_NETLINK_CONTROL
+	tristate "Linux Trace Toolkit Netlink Controller"
+	depends on LTT_TRACER
+	default m
+	help
+	  If you enable this option, the Linux Trace Toolkit Netlink Controller
+	  will be either built in the kernel of as module.
+
+config LTT_STATEDUMP
+	tristate "Linux Trace Toolkit State Dump"
+	depends on LTT_TRACER
+	select LTT_PROBE_LIST
+	default m
+	help
+	  If you enable this option, the Linux Trace Toolkit State Dump will
+	  be either built in the kernel of as module.
+
+	  This module saves the state of the running kernel at trace start
+	  into the trace buffers along with the ongoing tracing information.
+
+menu "Probes"
+	depends on LTT
+	depends on MARKERS
+
+config LTT_PROBE_FS
+	tristate "Linux Trace Toolkit File System Probe"
+	select LTT_FACILITY_FS
+	select LTT_FACILITY_FS_DATA
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  Probe file system events.
+
+config LTT_PROBE_IPC
+	tristate "Linux Trace Toolkit Inter-Process Communication Probe"
+	select LTT_FACILITY_IPC
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  LTT IPC probe.
+
+config LTT_PROBE_KERNEL
+	tristate "Linux Trace Toolkit Kernel Probe"
+	select LTT_FACILITY_KERNEL
+	select LTT_FACILITY_PROCESS
+	select LTT_FACILITY_TIMER
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  LTT Kernel facility.
+
+config LTT_PROBE_ARCH
+	tristate "Linux Trace Toolkit Architecture Specific Probe"
+	select LTT_FACILITY_KERNEL
+	select LTT_FACILITY_KERNEL_ARCH
+	select LTT_FACILITY_IPC
+	select LTT_FACILITY_MEMORY
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  LTT Arch Probe.
+
+config LTT_PROBE_MM
+	tristate "Linux Trace Toolkit Memory Probe"
+	select LTT_FACILITY_MEMORY
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  LTT Memory probe.
+
+config LTT_PROBE_NET
+	tristate "Linux Trace Toolkit Network Probe"
+	select LTT_FACILITY_NETWORK
+	select LTT_FACILITY_SOCKET
+	select LTT_FACILITY_NETWORK_IP_INTERFACE
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  LTT Network probe.
+
+config LTT_PROBE_LIST
+	tristate "Linux Trace Toolkit system listing probe"
+	select LTT_FACILITY_STATEDUMP
+	default m
+	help
+  	  Activate per facilities LTT probes. This is the dynamic mechanism
+  	  where the data gathering is. Probes connect to markers when their
+  	  module is loaded.
+  
+	  System listing probe.
+
+endmenu
+
+menu "Event types"
+	depends on LTT
+
+config LTT_FACILITY_FS
+	tristate "Linux Trace Toolkit File System Facility"
+	depends on LTT
+	default n
+	help
+	  Probe file system events.
+
+config LTT_FACILITY_FS_DATA
+	tristate "Linux Trace Toolkit File System Probe Data Log"
+	depends on LTT
+	default n
+	help
+	  LTT file system data log facility. Logs the beginning of data sent
+	  through read and write system calls.
+
+config LTT_FACILITY_IPC
+	tristate "Linux Trace Toolkit Inter-Process Communication Facility"
+	depends on LTT
+	default n
+	help
+	  LTT IPC facility. Contains event definition for inter-process
+	  communication events.
+
+config LTT_FACILITY_KERNEL
+	tristate "Linux Trace Toolkit Kernel Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Kernel facility. Contains event definition for tasklet, irq,
+	  system calls, traps, soft irq events.
+
+config LTT_FACILITY_KERNEL_ARCH
+	tristate "Linux Trace Toolkit Kernel Arch Specific Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Kernel facility. Contains event definition for system calls in an
+	  enumeration that matches the architecture.
+
+config LTT_FACILITY_MEMORY
+	tristate "Linux Trace Toolkit Memory Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Memory facility. Contains event definition for memory management
+	  related events.
+
+config LTT_FACILITY_NETWORK
+	tristate "Linux Trace Toolkit Network Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Network facility. Contains event definition for network subsystem.
+
+config LTT_FACILITY_NETWORK_IP_INTERFACE
+	tristate "Linux Trace Toolkit Network IP Interface Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Network IP Interface facility. Contains event definition for
+	  network device state.
+
+config LTT_FACILITY_PROCESS
+	tristate "Linux Trace Toolkit Process Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Process facility. Contains event definition for process management
+	  and scheduling.
+
+config LTT_FACILITY_SOCKET
+	tristate "Linux Trace Toolkit Socket Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Socket facility. Contains event definition for sockets.
+
+config LTT_FACILITY_STATEDUMP
+	tristate "Linux Trace Toolkit Kernel State Dump Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Kernel State Dump facility. Contains events for dumping kernel
+	  state at the beginning of a trace.
+
+config LTT_FACILITY_TIMER
+	tristate "Linux Trace Toolkit Timer Facility"
+	depends on LTT
+	default n
+	help
+	  LTT Timer facility. Contains events for timers.
+
+config LTT_FACILITY_STACK
+	bool "Sample process or kernel stacks (EXPERIMENTAL)"
+	depends on LTT
+	depends on X86 || X86_64
+	default n
+	help
+	  Get complete process and/or kernel stack (architecture specific)
+
+config LTT_PROCESS_STACK
+	bool "Get complete process stack"
+	depends on LTT_FACILITY_STACK
+	depends on X86
+	default n
+	help
+	  Get complete process stack.
+
+	  X86 :
+	  Will only dump stacks from programs compiled with frame pointers.
+
+	  X86_64 :
+	  It has three limitations : it only considers functions in the loaded
+	  executable (not libraries) to be actual function pointers.
+	  Furthermore, it will dump the stack of many threads at once for
+	  multithreaded processes (it is protected from races between threads
+	  though). It can also believe that arbritrary data on the stack
+	  "looks like" a function pointer.
+
+config LTT_PROCESS_MAX_FUNCTION_STACK
+	int "Maximum number of longs on the stack between functions"
+	depends on LTT_PROCESS_STACK
+	default 100
+	help
+	  Maximum threshold over which, if we do not find a function pointer on
+	  the process stack, we stop dumping the pointers on the stack.
+
+config LTT_PROCESS_MAX_STACK_LEN
+	int "Maximum number of longs on the stack to read"
+	depends on LTT_PROCESS_STACK
+	default 250
+	help
+	  Maximum threshold of stack size over which we stop looking for
+	  function pointers.
+
+config LTT_KERNEL_STACK
+	bool "Get complete kernel stack"
+	depends on LTT_FACILITY_STACK
+	default n
+	help
+	  Get complete kernel stack
+
+config LTT_STACK_SYSCALL
+	bool "Get complete process stack in system call"
+	depends on LTT_PROCESS_STACK
+	default n
+	help
+	  Get complete process stack upon system call. Enable Compile
+	  the kernel with frame pointers to get better more precise
+	  results and better performances.
+
+config LTT_STACK_INTERRUPT
+	bool "Get complete kernel stack in timer interrupt"
+	depends on LTT_KERNEL_STACK
+	default n
+	help
+	  Get complete kernel stack upon timer interrupt
+
+config LTT_STACK_NMI
+	bool "Get complete kernel stack in NMI watchdog"
+	depends on LTT_KERNEL_STACK
+	default n
+	help
+	  Get complete kernel stack upon NMI watchdog timer
+
+endmenu
+

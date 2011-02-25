@@ -1,0 +1,59 @@
+#
+# XFRM configuration
+#
+config XFRM
+       bool
+       depends on NET
+
+config XFRM_USER
+	tristate "Transformation user configuration interface"
+	depends on INET && XFRM
+	---help---
+	  Support for Transformation (XFRM) user configuration interface
+	  like IPsec used by native Linux tools.
+
+	  If unsure, say Y.
+
+config XFRM_MIGRATE
+	bool "Transformation migrate database (EXPERIMENTAL)"
+	depends on XFRM && EXPERIMENTAL
+	---help---
+	  Support for migrate transformation to update endpoint address of
+	  transformation database.
+
+config XFRM_ENHANCEMENT
+	bool
+	depends on XFRM && EXPERIMENTAL
+	---help---
+	  Support for enhanced transformation.
+
+	  If you want to use Mobile IPv6, say Y.
+
+config XFRM_DEBUG
+       bool "Transformation Debug Message"
+       depends on XFRM
+	---help---
+	  You can say Y here if you want to get additional messages useful in
+	  debugging transformation code.
+
+config NET_KEY
+	tristate "PF_KEY sockets"
+	select XFRM
+	---help---
+	  PF_KEYv2 socket family, compatible to KAME ones.
+	  They are required if you are going to use IPsec tools ported
+	  from KAME.
+
+	  Say Y unless you know what you are doing.
+
+config NET_KEY_MIGRATE
+	bool "PF_KEY migration interface (EXPERIMENTAL)"
+	depends on NET_KEY && EXPERIMENTAL
+	select XFRM_MIGRATE
+	---help---
+	  Add PF_KEY MIGRATE message to PF_KEYv2 socket family.
+	  PF_KEY MIGRATE message updates endpoint address of IPsec tunnel
+	  in security policy and security association. This is required
+	  for Mobile IPv6 environment where the node keeps changing its
+	  attachment point to the Internet while facilitating IPsec tunnel.
+

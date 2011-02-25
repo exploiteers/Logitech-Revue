@@ -1,0 +1,22 @@
+snd-soc-ac97-objs := ac97.o
+snd-soc-wm8731-objs := wm8731.o
+snd-soc-wm8750-objs := wm8750.o
+snd-soc-wm8753-objs := wm8753.o
+snd-soc-wm9712-objs := wm9712.o
+snd-soc-cs4270-objs := cs4270.o
+snd-soc-tlv320aic3x-objs := tlv320aic3x.o
+snd-soc-cq93vc-objs := cq93vc.o
+snd-soc-ak4588-objs := ak4588-soc.o ak4xxx-soc-adda.o ak4114-soc-ditr.o
+snd-soc-codec_stubs-objs := codec_stubs.o
+
+obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
+obj-$(CONFIG_SND_SOC_WM8731)	+= snd-soc-wm8731.o
+obj-$(CONFIG_SND_SOC_WM8750)	+= snd-soc-wm8750.o
+obj-$(CONFIG_SND_SOC_WM8753)	+= snd-soc-wm8753.o
+obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
+obj-$(CONFIG_SND_SOC_CS4270)	+= snd-soc-cs4270.o
+obj-$(CONFIG_SND_SOC_TLV320AIC3X)	+= snd-soc-tlv320aic3x.o
+obj-$(CONFIG_SND_SOC_TLV320AIC3101)	+= snd-soc-tlv320aic3x.o
+obj-$(CONFIG_SND_SOC_CQ0093VC)	+= snd-soc-cq93vc.o
+obj-$(CONFIG_SND_SOC_AK4588)	+= snd-soc-ak4588.o
+obj-$(CONFIG_SND_SOC_CODEC_STUBS)	+= snd-soc-codec_stubs.o

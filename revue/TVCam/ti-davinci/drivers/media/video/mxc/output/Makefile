@@ -1,0 +1,4 @@
+ifeq ($(CONFIG_VIDEO_MXC_EMMA_OUTPUT),y)
+	mx27_output-objs := mx27_v4l2_output.o mx27_pp.o
+	obj-$(CONFIG_VIDEO_MXC_OUTPUT) += mx27_output.o
+endif

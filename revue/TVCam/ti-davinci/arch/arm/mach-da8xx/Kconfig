@@ -1,0 +1,78 @@
+if ARCH_DA8XX
+
+config	TI_CPPI41
+	tristate "TI CPPI 4.1 support"
+	help
+	  Configure this option to include the CPPI 4.1 support.
+
+choice
+	prompt "DA830/OMAP-L137 Board Type"
+	default MACH_DA8XX_EVM
+
+config MACH_DA8XX_EVM
+	bool "TI DA830/OMAP-L137 EVM"
+	help
+	  Configure this option to specify the whether the board used
+	  for development is a DA830/OMAP-L137 EVM.
+
+endchoice
+
+config DA8XX_UI
+	bool "DA830/OMAP-L137 UI (User Interface) board support"
+	depends on MACH_DA8XX_EVM
+	select DAVINCI_I2C_EXPANDER
+	help
+	  Support for the periferials located on User Interface board.
+
+choice
+	prompt "Select DA830/OMAP-L137 UI board peripheral"
+	depends on DA8XX_UI
+
+config DA8XX_UI_LCD
+	bool "LCD"
+	help
+	  Configure this option to use LCD as a framebuffer or simple character
+	  display.
+
+config DA8XX_UI_NAND
+	bool "NAND flash"
+	help
+	  Configure this option to specify the that CE3 will be used to
+	  communicate to the NAND flash. Do not forget to setup the switch
+	  correctly.
+
+config DA8XX_UI_NOR
+	bool "NOR flash"
+	help
+	  Configure this option to specify the that CE2/CE3 will be used to
+	  communicate to the NOR flash. Do not forget to setup the switch
+	  correctly.
+
+endchoice
+
+config SKIP_KICK_REGS_UNLOCK
+	bool "Skip unlocking of CFG region using KICK registers"
+	default n
+	help
+	  KICK registers on DA830/OMAP-L137 are provided to unlock access to CFG
+	  register space on the SoC.
+
+	  Unlocking KICK registers in Linux can lead to a race with similar
+	  operation being attempted from the DSP side.
+
+	  According to the KICK register documentation, there can be a race even
+	  if both sides are only doing an unlock.  Net result will be that KICK
+	  registers will remain locked and all the writes to CFG registers will
+	  not take effect.
+
+	  Ideally KICK registers should be unlocked once early in the boot
+	  process and never locked back again. The only reason this code is in
+	  Linux is to remain compatible with an older version of firmware which
+	  does not unlock the KICK registers.
+
+	  Say Y here if you care about DSP and ARM booting simultaneously.
+
+	  This is being defaulted to N to ensure backward compatibility with
+	  older firmware versions.
+
+endif

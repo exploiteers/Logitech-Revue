@@ -1,0 +1,76 @@
+if ARCH_MXC
+
+menu "Freescale MXC Implementations"
+
+choice
+	prompt "MXC/iMX System Type"
+	default 0
+
+config ARCH_MX2
+	bool "MX2-based"
+        select MXC_EMMA
+	select GENERIC_TIME
+	help
+	  This enables support for systems based on Freescale i.MX2x
+
+endchoice
+
+source "arch/arm/mach-mx2/Kconfig"
+
+endmenu
+
+config MXC_EMMA
+        bool
+        depends on ARCH_MXC
+
+config ISP1504_MXC
+        bool
+        select ISP1504_MXC_OTG if USB_GADGET && USB_EHCI_HCD && USB_OTG
+        default y if USB_EHCI_FSL_1504 || USB_EHCI_ARC_H2 || USB_GADGET_FSL_1504
+
+config ISP1504_MXC_OTG
+        tristate
+        help
+          Support for USB OTG pin detect using the ISP1504 transceiver on MXC platforms.
+
+config ISP1301_MXC
+        bool
+        default y if USB_EHCI_FSL_1301 || USB_GADGET_FSL_1301
+        select I2C_MXC
+
+config MC13783_MXC
+        bool
+        default y if USB_EHCI_FSL_MC13783 || USB_GADGET_FSL_MC13783
+        select SPI_MXC
+
+choice
+        prompt "Select serial USB transceiver mode"
+        depends on ISP1301_MXC || MC13783_MXC
+        default MXC_USB_SU6
+
+config MXC_USB_SU6
+        bool "Single Ended Unidirectional Mode"
+        help
+          If you say yes to this option, the serial tranceiver operates in SU6 mode.
+          This option will work for either the Freescale MC13783 or Philips ISP1301
+          transceiver.
+
+config MXC_USB_SB3
+        bool "Single Ended Bidirectional Mode"
+        help
+          If you say yes to this option, the serial tranceiver operates in SB3 mode.
+          Not recommended for the Freescale MC13783.
+
+config MXC_USB_DU6
+        bool "Differential Unidirectional Mode"
+        help
+          If you say yes to this option, the serial tranceiver operates in DU6 mode.
+
+config MXC_USB_DB4
+        bool "Differential Bidirectional Mode"
+        help
+          If you say yes to this option, the serial tranceiver operates in DB4 mode.
+
+endchoice
+
+endif

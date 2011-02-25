@@ -1,0 +1,140 @@
+menu "ALSA SoC audio for DaVinci SOCs"
+
+config SND_DAVINCI_SOC
+	tristate "SoC Audio for the TI DAVINCI chip"
+	depends on ARCH_DAVINCI && SND_SOC
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the DAVINCI AC97 or I2S interface. You will also need
+	  to select the audio interfaces to support below.
+
+config SND_DAVINCI_SOC_I2S
+	tristate
+
+config SND_DAVINCI_SOC_I2S_MCBSP
+	tristate
+
+config SND_DAVINCI_SOC_I2S_MCASP
+	tristate
+
+config SND_DAVINCI_SOC_I2S_VCIF
+	tristate
+
+config SND_DM644X_SOC_EVM
+	tristate "SoC Audio support for DaVinci EVM"
+	depends on SND_DAVINCI_SOC && MACH_DAVINCI_EVM
+	select SND_DAVINCI_SOC_I2S
+	select SND_DAVINCI_SOC_I2S_MCBSP
+	select SND_SOC_TLV320AIC3X
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DaVinci EVM platform.
+
+config SND_DM357_SOC_EVM
+	tristate "SoC Audio support for DaVinci DM357 EVM"
+	depends on SND_DAVINCI_SOC && MACH_DAVINCI_DM357_EVM
+	select SND_DAVINCI_SOC_I2S
+	select SND_DAVINCI_SOC_I2S_MCBSP
+	select SND_SOC_TLV320AIC3X
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DaVinci DM357 EVM platform.
+
+config SND_DM355_SOC_EVM
+	tristate "SoC Audio support for DaVinci DM355 EVM"
+	depends on SND_DAVINCI_SOC && MACH_DAVINCI_DM355_EVM
+	select SND_DAVINCI_SOC_I2S
+	select SND_DAVINCI_SOC_I2S_MCBSP
+	select SND_SOC_TLV320AIC3X
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DaVinci DM355 EVM platform.
+
+config SND_DM6467_SOC_EVM
+	tristate "SoC Audio support for DaVinci DM6467 EVM"
+	depends on SND_DAVINCI_SOC && MACH_DAVINCI_DM6467_EVM
+	select SND_DAVINCI_SOC_I2S
+	select SND_DAVINCI_SOC_I2S_MCASP
+	select SND_SOC_TLV320AIC3X
+	select SND_SOC_CODEC_STUBS
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DaVinci DM646x EVM platform.
+
+config SND_DM365_SOC_EVM
+	tristate "SoC Audio support for DaVinci DM365 EVM"
+	depends on SND_DAVINCI_SOC && (MACH_DAVINCI_DM365_EVM||MACH_DAVINCI_DM365_IPNC||MACH_DAVINCI_WOLVERINE)
+	select SND_DAVINCI_SOC_I2S
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DaVinci DM365 EVM platform.
+
+choice
+	prompt "DM365 codec select"
+	depends on SND_DM365_SOC_EVM
+	default SND_DM365_INTERNAL_CODEC
+
+config SND_DM365_INTERNAL_CODEC
+	tristate "CQ93VC"
+	select SND_DAVINCI_SOC_I2S_VCIF
+	select SND_SOC_CQ0093VC
+	help
+	  Say Y if you want to add support for SoC On-chip voice codec
+
+config SND_DM365_EXTERNAL_CODEC
+	tristate "AIC3101"
+	select SND_DAVINCI_SOC_I2S_MCBSP
+	select SND_SOC_TLV320AIC3101
+	help
+	  Say Y if you want to add support for AIC3101 audio codec
+endchoice
+
+config SND_DA8XX_SOC_EVM
+	tristate "SoC Audio support for DA830/OMAP-L137 EVM"
+	depends on SND_DAVINCI_SOC && MACH_DA8XX_EVM
+	select SND_DAVINCI_SOC_I2S
+	select SND_DAVINCI_SOC_I2S_MCASP
+	select SND_SOC_CODEC_STUBS
+	help
+	  Say Y if you want to add support for SoC audio on TI
+	  DA830/OMAP-L137 EVM platform.
+
+config SND_DAVINCI_SOC_MCASP0_ARM_CNTL
+	bool "DA830/OMAP-L137 McASP0 controlled by ARM"
+	depends on SND_DAVINCI_SOC && ARCH_DA8XX
+	help
+	  Say Y if McASP0 controlled by ARM, and N if McASP0 controlled by DSP.
+
+config SND_DAVINCI_SOC_MCASP1_ARM_CNTL
+	bool "DA830/OMAP-L137 McASP1 controlled by ARM"
+	depends on SND_DAVINCI_SOC && ARCH_DA8XX
+	help
+	  Say Y if McASP1 controlled by ARM, and N if McASP1 controlled by DSP.
+
+config SND_DAVINCI_SOC_MCASP2_ARM_CNTL
+	bool "DA830/OMAP-L137 McASP2 controlled by ARM"
+	depends on SND_DAVINCI_SOC && ARCH_DA8XX
+	help
+	  Say Y if McASP2 controlled by ARM, and N if McASP2 controlled by DSP.
+
+choice
+	prompt "DA830/OMAP-L137 EVM: Codec To Use"
+	depends on SND_DA8XX_SOC_EVM
+	default SND_DA8XX_AIC3106_CODEC
+
+config SND_DA8XX_AIC3106_CODEC
+	bool "AIC3106 (on EVM Board)"
+	select SND_SOC_TLV320AIC3X
+
+config SND_DA8XX_AK4588_CODEC
+	bool "AK4588 (on Audio Board)"
+	select SND_SOC_AK4588
+	select SND_SOC_AK4588_SPI
+
+endchoice
+
+config SND_AK4588_SPI_INTFC
+	def_bool y
+	depends on SND_DA8XX_AK4588_CODEC
+
+endmenu
