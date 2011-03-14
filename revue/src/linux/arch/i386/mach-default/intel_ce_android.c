@@ -15,12 +15,9 @@
 #include <linux/flash_ts.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/mc146818rtc.h>
 #include <linux/moduleparam.h>
 #include <linux/mtd/mtd.h>
-#include <linux/nvram.h>
 #include <linux/reboot.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 
 #include <asm/setup.h>
@@ -29,7 +26,6 @@
 
 #define ONE_MB		(1024 * 1024)
 
-static int bcb_nvram_reboot_hook(struct notifier_block*, unsigned long, void*);
 static int bcb_fts_reboot_hook(struct notifier_block*, unsigned long, void*);
 
 /* We need to reserve chunk at the top of system memory for Intel SDK.
@@ -61,37 +57,6 @@ static __initdata struct board_config {
 	int (*reboot_notifier)(struct notifier_block*, unsigned long, void*);
 
 } boards[] = {
-	{ .name = "tatung3",
-	  .sdk_pool = 324 * ONE_MB,
-	  .sdk_pool_recovery = 256 * ONE_MB,
-	  .default_root = "/dev/sda1",
-	  .reboot_notifier = bcb_nvram_reboot_hook,
-
-	  /* Partition doc:
-	   * https://spreadsheets.google.com/a/google.com/ccc?key=rW_lOBktca7m3nkDcoTjSVw&hl=en
-	   */
-	  .mtdparts = "physmap-flash.0:"
-		      /* 1M gap - CEFDK */
-		      "1m@1m(redboot),"
-		      "2m(recovery-kernel),"
-		      /* splash and scratch partitions are located here,
-		       * but declared last (see note below) */
-		      "16m@14m(recovery-ramdisk),"
-		      "1m(misc),"
-		      "512k(intel-config),"
-		      /* 256k gap */
-		      "128k@32512k(redboot-config),"
-		      /* 128k gap */
-
-		      /* scratch and splash partitions out of order: this is
-		       * because  redboot (unfortunately) does not use symbolic
-		       * names and boots recovery by requesting root=/dev/mtd2
-		       * (which must correspond to the recovery-ramdisk
-		       * partition)
-		       */
-		       "4m@4m(splash),"
-		       "6m@8m(scratch)",
-	},
 	{ .name = "tatung4",
 	  .sdk_pool = 328 * ONE_MB,
 	  .sdk_pool_recovery = 256 * ONE_MB,
@@ -212,7 +177,7 @@ static __initdata struct board_config {
 /* This is what we will use if nothing has been passed by bootloader
  * or name wasn't recognized.
  */
-#define DEFAULT_BOARD	"tatung3"
+#define DEFAULT_BOARD	"tatung4"
 #define DEFAULT_REVISION 0
 static __initdata char board_name[32] = DEFAULT_BOARD;
 static __initdata unsigned board_revision;
@@ -396,31 +361,6 @@ __setup_param("androidboot.hardware", dummy_3, dummy_param, 1);
 __setup_param("androidboot.mode", dummy_4, dummy_param, 1);
 __setup_param("androidboot.revision", dummy_5, dummy_param, 1);
 __setup_param("androidboot.serialno", dummy_6, dummy_param, 1);
-
-/* BCB (boot control block) support */
-static int bcb_nvram_reboot_hook(struct notifier_block *notifier,
-				 unsigned long code, void *cmd)
-{
-	static const u8 recovery_nvram[] = {
-		0xE1, 0x00,		/* FISHTANK_TAG_MAGIC */
-		0x01, 0x01, 0x52,	/* FISHTANK_TAG_COMMAND */
-		0x02, 0x01, 0x00,	/* FISHTANK_TAG_CRASH_COUNT */
-		0xFE, 0x00		/* FISHTANK_TAG_CRC */
-	};
-
-	if (code == SYS_RESTART && cmd && !strcmp(cmd, "recovery")) {
-		unsigned long flags;
-		int i;
-
-		spin_lock_irqsave(&rtc_lock, flags);
-		for (i = 0; i < sizeof(recovery_nvram); ++i)
-			__nvram_write_byte(recovery_nvram[i], i);
-		__nvram_set_checksum();
-		spin_unlock_irqrestore(&rtc_lock, flags);
-	}
-
-	return NOTIFY_DONE;
-}
 
 static int bcb_fts_reboot_hook(struct notifier_block *notifier,
 			       unsigned long code, void *cmd)

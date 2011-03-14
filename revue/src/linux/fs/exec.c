@@ -261,6 +261,11 @@ static int __bprm_mm_init(struct linux_binprm *bprm)
 
 	vma->vm_flags = VM_STACK_FLAGS;
 	vma->vm_page_prot = protection_map[vma->vm_flags & 0x7];
+
+	err = security_file_mmap(NULL, 0, 0, 0, vma->vm_start, 1);
+	if (err)
+		goto err;
+
 	err = insert_vm_struct(mm, vma);
 	if (err) {
 		up_write(&mm->mmap_sem);

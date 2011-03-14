@@ -23,7 +23,7 @@
 #include <linux/uaccess.h>
 
 #define DRV_NAME        	"fts"
-#define DRV_VERSION     	"0.99"
+#define DRV_VERSION     	"0.999"
 #define DRV_DESC        	"MTD-based key-value storage"
 
 MODULE_DESCRIPTION(DRV_DESC);
@@ -226,7 +226,7 @@ static int flash_ts_commit(struct flash_ts_priv *ts)
 
 	while (max_iterations--) {
 		/* wrap around */
-		if (off > mtd->size)
+		if (off >= mtd->size)
 			off = 0;
 
 		/* new block? */
